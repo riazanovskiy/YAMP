@@ -1,6 +1,6 @@
 print('Started ' + __name__)
 import unittest
-from testing_examples import for_examples
+from for_examples import for_examples
 import vpleer
 from songslist import songslist
 import sys
