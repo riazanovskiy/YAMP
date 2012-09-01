@@ -91,22 +91,35 @@ class Database:
                     valid_filename('{track:0=2} {title}.mp3'.format(track=track,
                                                                     title=title)))
                 print(filename)
-                filename = shutil.copy(file, filename)
+                try:
+                    filename = shutil.copy(file, filename)
+                except shutil.Error:
+                    pass
                 self.cursor.execute('insert into songs (track, artist, album,'
                                     ' title, bitrate, duration, filename, has_file)'
                                     'values (?, ?, ?, ?, ?, ?, ?, 1)', (track,
                                     artist, album, title, bitrate, duration,
                                     filename))
 
+# (track, artist, album, title, bitrate, duration, filename, filehash, has_file)
     def writeout(self):
-        for song in self.data:
-            song.tags.write()
+        self.cursor.execute('select track, artist, album, title, filename, has_file from songs')
+        for song in self.cursor:
+            (track, artist, album, title, filename, has_file) = song
+            if has_file:
+                tag = open_tag(filename)
+                tag._frames.clear()
+                tag.track = track
+                tag.artist = artist
+                tag.album = album
+                tag.title = title
+                tag.write()
 
     # def pretty_print(self, only_good=True):
-    #     print('Count: ', len(self.data))
-    #     for song in sorted(self.data):
-    #         if song.confirmed or not only_good:
-    #             printsong(song)
+    #     self.cursor.execute('select artist, title from songs')
+    #     for song in self.cursor:
+    #         (artist, title) = song
+    #         print('{} -- {}'.format(artist, title))
 
     # def print_bad_songs(self):
     #     for song in sorted(self.data):
@@ -152,8 +165,8 @@ class Database:
     #                 song.confirmed = True
 
 database = Database('/home/dani/yamp')
-database.import_folder('/home/dani/testing')
+database.import_folder('/home/dani/yamp_')
 # database.wipe_tags()
-# database.writeout()
+database.writeout()
 # database.print_tags()
 # database.save()
