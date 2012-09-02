@@ -59,19 +59,19 @@ def verify_dir(name):
 
 class Database:
     def __init__(self, path):
-        self.data = set()
         self.path = os.path.abspath(path)
         self.datapath = os.path.join(path, 'database')
         self.sql_connection = sqlite3.connect(self.datapath)
         self.cursor = self.sql_connection.cursor()
-        self.cursor.execute('pragma synchronous = NORMAL')
-        self.cursor.execute('pragma count_changes = OFF')
+        # self.cursor.execute('pragma synchronous = NORMAL')
+        # self.cursor.execute('pragma count_changes = OFF')
         self.cursor.execute('create table if not exists songs (track int,'
                             ' artist text, album text, title text, bitrate int,'
                             ' duration int, filename text, filehash blob,'
                             ' has_file boolean)')
 
     def import_folder(self, folder):
+        self.cursor.execute('begin')
         for curr, dirs, files in os.walk(folder):
             for file in (os.path.join(curr, i) for i in files if is_music_file(os.path.join(curr, i))):
                 tags = open_tag(file)
@@ -100,6 +100,8 @@ class Database:
                                     'values (?, ?, ?, ?, ?, ?, ?, 1)', (track,
                                     artist, album, title, bitrate, duration,
                                     filename))
+        # self.cursor.execute('commit')
+        self.sql_connection.commit()
 
 # (track, artist, album, title, bitrate, duration, filename, filehash, has_file)
     def writeout(self):
@@ -115,11 +117,12 @@ class Database:
                 tag.title = title
                 tag.write()
 
-    # def pretty_print(self, only_good=True):
-    #     self.cursor.execute('select artist, title from songs')
-    #     for song in self.cursor:
-    #         (artist, title) = song
-    #         print('{} -- {}'.format(artist, title))
+    def pretty_print(self, only_good=True):
+        # print('here')
+        self.cursor.execute('select artist, title from songs')
+        for song in self.cursor:
+            (artist, title) = song
+            print('{} -- {}'.format(artist, title))
 
     # def print_bad_songs(self):
     #     for song in sorted(self.data):
@@ -138,35 +141,36 @@ class Database:
     #     for i in self.data:
     #         print('\n'.join((map(repr, i.tags.frames()))) + '\n')
 
-    # def user_control(self, data=None, full=False):
-    #     if not data:
-    #         data = self.data
-    #     print('Count: ', len(data))
-    #     for album in get_by_albums(data):
-    #         bad = False
-    #         try:
-    #             for song in album:
-    #                 printsong(song)
-    #         except:
-    #             bad = True
-    #         if not get_yn_promt('Are they all correct? ') or bad:
-    #             if len(album) == 1:
-    #                 album[0].confirmed == False
-    #             else:
-    #                 if get_yn_promt('Are they all incorrect? '):
-    #                     for song in album:
-    #                         song.confirmed = False
-    #                 else:
-    #                     for song in album:
-    #                         printsong(song)
-    #                         song.confirmed = get_yn_promt('Is it correct? ')
-    #         else:
-    #             for song in album:
-    #                 song.confirmed = True
+    def user_control(self, data=None, full=False):
+        if not data:
+            data = self.data
+        print('Count: ', len(data))
+        for album in get_by_albums(data):
+            bad = False
+            try:
+                for song in album:
+                    printsong(song)
+            except:
+                bad = True
+            if not get_yn_promt('Are they all correct? ') or bad:
+                if len(album) == 1:
+                    album[0].confirmed == False
+                else:
+                    if get_yn_promt('Are they all incorrect? '):
+                        for song in album:
+                            song.confirmed = False
+                    else:
+                        for song in album:
+                            printsong(song)
+                            song.confirmed = get_yn_promt('Is it correct? ')
+            else:
+                for song in album:
+                    song.confirmed = True
 
 database = Database('/home/dani/yamp')
-database.import_folder('/home/dani/yamp_')
+# database.import_folder('/home/dani/yamp_')
 # database.wipe_tags()
-database.writeout()
+database.pretty_print()
+# database.writeout()
 # database.print_tags()
 # database.save()
