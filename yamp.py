@@ -7,6 +7,13 @@ import sqlite3
 from tags import open_tag
 
 
+def safe_print(text):
+    try:
+        print (text)
+    except:
+        pass
+
+
 def filesize(file):
     return os.stat(file).st_size
 
@@ -43,7 +50,8 @@ class Database:
         self.cursor.execute('create table if not exists songs (track int,'
                             ' artist text, album text, title text, bitrate int,'
                             ' duration int, filename text,'
-                            ' has_file boolean, unique(artist, title, album))')
+                            ' has_file boolean, confirmed boolean, '
+                            ' unique(artist, title, album))')
         self.cursor.execute('create unique index if not exists songsindex '
                             'ON songs(artist, title, album, filename)')
 
@@ -73,8 +81,8 @@ class Database:
                 #     logger.error('Can not copy file')
 
                 self.cursor.execute('insert or ignore into songs (track, artist, album,'
-                                    ' title, bitrate, duration, filename, has_file)'
-                                    'values (?, ?, ?, ?, ?, ?, ?, 1)', (track,
+                                    ' title, bitrate, duration, filename, has_file, confirmed)'
+                                    'values (?, ?, ?, ?, ?, ?, ?, 1, 0)', (track,
                                     artist, album, title, bitrate, duration,
                                     filename))
         self.sql_connection.commit()
@@ -104,34 +112,73 @@ class Database:
         for i in self.cursor:
             print('\n'.join((map(repr, open_tag(i[0]).frames()))) + '\n')
 
-    # def user_control(self, data=None, full=False):
-    #     if not data:
-    #         data = self.data
-    #     print('Count: ', len(data))
-    #     for album in get_by_albums(data):
-    #         bad = False
-    #         try:
-    #             for song in album:
-    #                 printsong(song)
-    #         except:
-    #             bad = True
-    #         if not get_yn_promt('Are they all correct? ') or bad:
-    #             if len(album) == 1:
-    #                 album[0].confirmed == False
-    #             else:
-    #                 if get_yn_promt('Are they all incorrect? '):
-    #                     for song in album:
-    #                         song.confirmed = False
-    #                 else:
-    #                     for song in album:
-    #                         printsong(song)
-    #                         song.confirmed = get_yn_promt('Is it correct? ')
-    #         else:
-    #             for song in album:
-    #                 song.confirmed = True
+    def user_control(self, full=False):
+        print('\n\n\n')
+        self.cursor.execute('select distinct album from songs')
+        albums = self.cursor.fetchall()
+        for album in albums:
+            self.cursor.execute("select artist, title from songs where album=? and confirmed<>1",
+                                album)
+            songs = self.cursor.fetchall()
+            if not songs:
+                continue
+            print('Album: ', album[0])
+            for artist, title in songs:
+                print('{} -- {}'.format(artist, title))
 
-database = Database('/home/dani/yamp')
-database.import_folder('/home/dani/tmp_')
-database.pretty_print()
+            if not get_yn_promt('Are they all correct? '):
+                if len(songs) == 1:
+                    self.cursor.execute('update songs set confirmed=1 where title=? and artist=?',
+                                         songs[0])
+                else:
+                    if get_yn_promt('Are they all incorrect? '):
+                        self.cursor.execute('update songs set confirmed=0 where album=?', album)
+                    else:
+                        for artist, title in songs:
+                            print('{} -- {}'.format(artist, title))
+                            self.cursor.execute('update songs set confirmed=? where title=? and artist=?',
+                                                (get_yn_promt('Is it correct? '), title, artist))
+            else:
+                self.cursor.execute('update songs set confirmed=1 where album=?', album)
+        self.sql_connection.commit()
+
+    def correct_tags(self):
+        print('\n\n')
+        self.cursor.execute('select artist, album, title from songs where confirmed=0')
+        update_needed = self.cursor.fetchall()
+        for artist, album, title in update_needed:
+            print('{} -- {}'.format(artist, title))
+            attepmts = [('cp1252', 'cp1251')]
+            succeeded = 0
+            for dst, src in attepmts:
+                try:
+                    print('{} -- {}'.format(artist.encode(dst).decode(src),
+                                            title.encode(dst).decode(src)))
+                    succeeded += 1
+                except:
+                    pass
+
+            idx = 0
+            if succeeded:
+                promt = input('Which is correct? [0-%i] ' % succeeded)
+                while(not promt.isdigit()) or not (0 < int(promt) <= succeeded):
+                    promt = input('Which is correct? [0-%i] ' % succeeded)
+                idx = int(promt)
+            if 0 < idx <= succeeded:
+                idx -= 1
+                self.cursor.execute('update songs set artist=?, title=? where artist=? and title=?',
+                                    (artist.encode(attepmts[idx][0]).decode(attepmts[idx][1]),
+                                     title.encode(attepmts[idx][0]).decode(attepmts[idx][1]),
+                                     artist, title))
+            elif idx == 0:
+                new_artist = input('Enter correct artist ') or artist
+                new_title = input('Enter correct title ') or title
+                self.cursor.execute('update songs set artist=?, title=? where artist=? and title=?',
+                                    (new_artist, new_title, artist, title))
+
+database = Database('/home/dani/yamp_')
+database.import_folder('/home/dani/yamp')
+# database.pretty_print()
+database.user_control()
+database.correct_tags()
 database.writeout()
-database.print_tags()
