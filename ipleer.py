@@ -88,4 +88,4 @@ if __name__ == '__main__':
 
     setup_ipleer()
     with open(sys.argv[2], 'wb') as output:
-        output.write(download(sys.argv[1]))
+        output.write(download(sys.argv[1]).read())
