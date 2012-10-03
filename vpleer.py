@@ -27,6 +27,9 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         sys.argv.append('paolo conte')
         sys.argv.append('tmp/test__.mp3')
+    elif len(sys.argv) != 3:
+        print('Enter your search query and output filename')
+        exit(1)
     output = open(sys.argv[2], 'wb')
     output.write(download(sys.argv[1]).read())
     output.close()
