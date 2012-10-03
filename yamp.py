@@ -59,6 +59,10 @@ class Database:
                             ' unique(artist, title, album))')
         self.cursor.execute('create table if not exists artists (name text unique, '
                             ' confirmed boolean default 0)')
+        self.cursor.execute('create table if not exists albums (title text, '
+                            ' artist text, confirmed boolean default 0, '
+                            ' unique (artist, title))')
+
         self.cursor.execute('create unique index if not exists songsindex '
                             'ON songs(artist, title, album, filename)')
         self.cursor.execute('create unique index if not exists artistsindex '
@@ -67,15 +71,15 @@ class Database:
     def move_files(self):
         self.cursor.execute('select track, artist, album, title, filename from songs')
         moved = []
-        for track, artist, album, title, old in self.cursor:
+        for track, artist, album, title, old_filename in self.cursor:
             folder_name = os.path.join(self.path, valid_filename(artist),
                                        valid_filename(album))
             filename = os.path.join(folder_name,
                 valid_filename('{track:0=2} {title}.mp3'.format(track=track,
                                                                 title=title)))
-            if old != filename:
+            if old_filename != filename:
                 verify_dir(folder_name)
-                moved.append((shutil.copy(old, filename), old))
+                moved.append((shutil.copy(old_filename, filename), old_filename))
 
         self.cursor.executemany('update songs set filename=? where filename=?',
                                 moved)
@@ -100,25 +104,25 @@ class Database:
                                     file))
         self.cursor.execute('insert or ignore into artists (name) '
                             'select distinct artist from songs')
+        self.cursor.execute('insert or ignore into albums (title, artist) '
+                            'select distinct album, artist from songs')
         self.sql_connection.commit()
 
     def writeout(self):
-        self.cursor.execute('select track, artist, album, title, filename, has_file from songs')
-        for song in self.cursor:
-            (track, artist, album, title, filename, has_file) = song
-            if has_file:
-                tag = open_tag(filename)
-                tag._frames.clear()
-                tag.track = track
-                tag.artist = artist
-                tag.album = album
-                tag.title = title
-                tag.write()
+        self.cursor.execute('select track, artist, album, title, filename, '
+                            ' from songs where has_file=1')
+        for (track, artist, album, title, filename) in self.cursor:
+            tag = open_tag(filename)
+            tag._frames.clear()
+            tag.track = track
+            tag.artist = artist
+            tag.album = album
+            tag.title = title
+            tag.write()
 
     def pretty_print(self, only_good=True):
-        self.cursor.execute('select artist, title, filename from songs')
-        for song in self.cursor:
-            (artist, title, filename) = song
+        self.cursor.execute('select artist, title from songs')
+        for (artist, title) in self.cursor:
             print('{} -- {}'.format(artist, title))
 
     def print_tags(self):
@@ -126,67 +130,33 @@ class Database:
         for i in self.cursor:
             print('\n'.join((map(repr, open_tag(i[0]).frames()))) + '\n')
 
-    def user_control(self):
-        self.cursor.execute('select distinct album from songs where conf_album=0 or conf_title=0')
-        albums = self.cursor.fetchall()
-        for (album,) in albums:
-            print('Album: ', album)
-            if get_yn_promt('Is that correct? '):
-                self.cursor.execute('update songs set conf_album=1 where album=?', (album,))
-            else:
-                promt = attepmt_to_correct(album)
-                if promt != album:
-                    self.cursor.execute('update songs set conf_album=1, album=? '
-                                        ' where album=?',
-                                         (promt, album))
-                else:
-                    self.cursor.execute('update songs set conf_album=0 '
-                                        ' where album=?', (album,))
-
-            self.cursor.execute("select title from songs where album=? and conf_title=0",
-                                (album,))
-            songs = self.cursor.fetchall()
-
-            if not songs:
-                continue
-
-            for (title,) in songs:
-                print(title)
-
-            if not get_yn_promt('Are they all correct? '):
-                for (title,) in songs:
-                    promt = attepmt_to_correct(title)
-                    if promt != title:
-                        self.cursor.execute('update songs set conf_title=1, title=? '
-                                            ' where title=? and album=?',
-                                             (promt, title, album))
-                    else:
-                        self.cursor.execute('update songs set conf_title=0 '
-                                            ' where title=? and album=?',
-                                             (title, album))
-            else:
-                self.cursor.execute('update songs set conf_title=1 where album=?', (album,))
-        self.sql_connection.commit()
-
     @lru_cache()
     def search(self, request, what, incorrect=False):
-        attepmts = [('utf-8', 'utf-8'), ('cp1252', 'cp1251')]
+        attepmts = [('utf-8', 'utf-8'), ('cp1252', 'cp1251'), ('utf-8', 'utf-8')]
         result = None
         assert (what in {'artist', 'album', 'track'})
         for dst, src in attepmts[incorrect:]:
-            suggest = request.encode(dst).decode(src)
+            try:
+                suggest = request.encode(dst).decode(src)
+            except:
+                continue
             try:
                 if suggest != request:
-                    local = difflib.get_close_matches(suggest,
-                                                      getattr(self, what + 's'),
+                    local = difflib.get_close_matches(suggest, getattr(self, what + 's'),
                                                       1, 0.8)
                     if local:
                         result = local[0]
                         break
                 search = getattr(self.network, 'search_for_' + what)(suggest)
                 result = search.get_next_page()
+                print('Result  \t', result)
                 if result:
-                    result = result[0].get_name(True)
+                    if what == 'artist':
+                        result = result[0].get_name(properly_capitalized=True)
+                    elif what == 'album':
+                        result = result[0].get_title()
+                    else:
+                        raise Exception('Unimplemented!')
                     break
             except:
                 pass
@@ -219,6 +189,36 @@ class Database:
 
         self.cursor.executemany('update or ignore songs set artist=? where artist=?',
                                  update_songs)
+        self.cursor.executemany('update or ignore albums set artist=? where artist=?',
+                                 update_songs)
+        self.sql_connection.commit()
+
+    def correct_albums(self):
+        ask = lru_cache()(lambda x, y: input(x))
+        ask_yn = lru_cache()(get_yn_promt)
+        self.cursor.execute('select artist, title from albums where confirmed=0')
+        albums = self.cursor.fetchall()
+        self.cursor.execute('select title from albums')
+        self.albums = [i for (i,) in self.cursor.fetchall()]
+        update_songs = []
+        for artist, title in albums:
+            confirmed = 1
+            if not ask_yn('Is {} -- {} correct? '.format(artist, title)):
+                found = self.search(title, 'album', incorrect=True)
+                if not ask_yn('Is {} correct? '.format(found)):
+                    promt = ask('Enter correct album (empty to leave as is): ', found)
+                    if promt == '':
+                        confirmed = 0
+                    found = promt or found
+
+            self.cursor.execute('delete from albums where title=?', (title,))
+            self.cursor.execute('insert or ignore into albums (artist, title, confirmed) '
+                                ' values (?, ?, ?)', (artist, title, confirmed))
+            if found != artist:
+                update_songs.append((found, title))
+
+        self.cursor.executemany('update or ignore songs set album=? where album=?',
+                                 update_songs)
         self.sql_connection.commit()
 
     def print_artists(self):
@@ -226,19 +226,14 @@ class Database:
         for name, confirmed in self.cursor:
             print(name, ['not', ''][confirmed], 'confirmed')
 
-
 database = Database('/home/dani/yamp')
-print('Started import')
-database.import_folder('/home/dani/tmporig')
-print('Imported tmporig')
-database.import_folder('/home/dani/Music')
-# database.pretty_print()
+# database.import_folder('/home/dani/Music')
 database.correct_artists()
-database.print_artists()
-database.correct_artists()
+database.correct_albums()
 database.print_artists()
 database.pretty_print()
-database.move_files()
+
+# database.move_files()
 # database.user_control()
 # database.correct_tags()
-database.writeout()
+# database.writeout()
