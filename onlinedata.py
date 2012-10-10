@@ -11,15 +11,30 @@ class OnlineData:
         brainz.set_useragent('yamp', '0.00', 'http://example.com')
 
     @lru_cache()
-    def search_artist(self, artist):
-        if not artist:
-            return ''
-        result = brainz.search_artists(artist)
-        if result:
-            result = result['artist-list']
-            if result:
-                return result[0]['name']
-        result = self.lastfm.search_for_artists(artist).get_next_page()
-        if result:
-            return result[0].get_name(properly_capitalized=True)
-        return artist
+    def generic_search(self, what, query):
+        assert (what in ['album', 'artist', 'track'])
+        mb_methods = {'album': brainz.search_releases,
+                      'artist': brainz.search_artists,
+                      'track': brainz.search_recordings}
+        mb_results = {'album': ('release-list', 'title'),
+                      'artist': ('artist-list', 'name'),
+                      'track': ('recording-list', 'title')}
+        lastfm_methods = {'album': self.lastfm.search_for_album,
+                          'artist': self.lastfm.search_for_artist,
+                          'track': lambda x: self.lastfm.search_for_track('', x)}
+        if query:
+            try:
+                result = mb_methods[what](query)
+                if result:
+                    result = result[mb_results[what][0]]
+                    if result:
+                        return result[0][mb_results[what][1]]
+            except:
+                pass
+            try:
+                result = lastfm_methods[what](query).get_next_page()
+                if result:
+                    return result[0].get_name(properly_capitalized=True)
+            except:
+                pass
+        return query
