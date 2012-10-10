@@ -17,26 +17,6 @@ languages = ['en_US', 'de_DE', 'ru_RU']  # FIXME add french
 enchant_dictionaries = [enchant.Dict(lang) for lang in languages]
 
 
-def is_all_ascii(data):
-    try:
-        data.encode('ascii')
-    except UnicodeEncodeError:
-        return False
-    else:
-        return True
-
-
-def measure_spelling(words):
-    words = words.split()
-    spelling = 0
-    for word in words:
-        for d in enchant_dictionaries:
-            if d.check(word):
-                spelling += 1
-                break
-    return spelling / len(words)
-
-
 def safe_print(text):
     try:
         print (text)
@@ -57,6 +37,11 @@ def valid_filename(filename):
     return ''.join('-' if i in invalid else i for i in filename)
 
 
+def verify_dir(name):
+    if not os.path.isdir(name):
+        os.makedirs(name)
+
+
 def get_yn_promt(promt):
     ans = input(promt)
     while ans not in ['y', 'n', '']:
@@ -64,9 +49,24 @@ def get_yn_promt(promt):
     return ans == 'y'
 
 
-def verify_dir(name):
-    if not os.path.isdir(name):
-        os.makedirs(name)
+def is_all_ascii(data):
+    try:
+        data.encode('ascii')
+    except UnicodeEncodeError:
+        return False
+    else:
+        return True
+
+
+def measure_spelling(words):
+    words = words.split()
+    spelling = 0
+    for word in words:
+        for d in enchant_dictionaries:
+            if d.check(word):
+                spelling += 1
+                break
+    return spelling / len(words)
 
 
 def improve_encoding(request):
@@ -98,10 +98,6 @@ class Database:
                             ' duration int, filename text unique,'
                             ' has_file boolean, confirmed boolean, '
                             ' unique(artist, title, album))')
-        self.cursor.execute('create table if not exists artists (name text unique)')
-        self.cursor.execute('create table if not exists albums (title text, '
-                            ' artist text, confirmed boolean default 0, '
-                            ' unique (artist, title))')
 
         self.cursor.execute('create unique index if not exists songsindex '
                             'ON songs(artist, title, album, filename)')
@@ -140,10 +136,6 @@ class Database:
                                     'values (?, ?, ?, ?, ?, ?, ?, 1, 0)', (track,
                                     artist, album, title, bitrate, duration,
                                     file))
-        self.cursor.execute('insert or ignore into artists (name) '
-                            'select distinct artist from songs')
-        self.cursor.execute('insert or ignore into albums (title, artist) '
-                            'select distinct album, artist from songs')
         self.sql_connection.commit()
 
     def writeout(self):
@@ -152,16 +144,12 @@ class Database:
         for (track, artist, album, title, filename) in self.cursor:
             tag = open_tag(filename)
             tag._frames.clear()
-            tag.track = track
-            tag.artist = artist
-            tag.album = album
-            tag.title = title
+            tag.track, tag.artist, tag.album, tag.title = track, artist, album, title
             tag.write()
 
     def pretty_print(self, only_good=True):
         self.cursor.execute('select artist, album, title from songs')
-        data = sorted(self.cursor.fetchall())
-        for (artist, album, title) in data:
+        for (artist, album, title) in sorted(self.cursor):
             print('{} -- {} -- {}'.format(artist, album, title))
 
     def print_tags(self):
@@ -169,133 +157,62 @@ class Database:
         for i in self.cursor:
             print('\n'.join((map(repr, open_tag(i[0]).frames()))) + '\n')
 
-    def correct_artists(self):
-        self.cursor.execute('select name from artists')
-        artists = {i: i for (i,) in self.cursor}
+    def generic_correction(self, what):
+        try:
+            assert (what in ['album', 'artist', 'track'])
+        except AssertionError:
+            print(what)
+            raise
+        field = what if what != 'track' else 'title'
+        self.cursor.execute('select distinct {} from songs'.format(field))
+        data = {i: i for (i,) in self.cursor}
 
-        for artist in artists:
-            artists[artist] = improve_encoding(artist)
+        for i in data:
+            data[i] = improve_encoding(i)
 
         case_mapping = defaultdict(lambda: [])
-        for i in artists.values():
+        for i in data.values():
             case_mapping[i.upper()].append(i)
 
-        cases = dict()
+        cases = {}
         for i in case_mapping:
-            if len(case_mapping[i]) == 1:
+            if (len(case_mapping[i]) > 1 or case_mapping[i][0].isupper()
+                or case_mapping[i][0].islower()):
+                print('Lookup for', i)
+                cases[i] = self.online.generic_search(what, i)
+            else:
                 cases[i] = case_mapping[i][0]
-            else:
-                cases[i] = self.online.search_artist(i)
 
-        for orig, artist in artists.items():
-            artists[orig] = cases[artist.upper()]
+        for old, new in data.items():
+            data[old] = cases[new.upper()]
 
-        for old, new in artists.items():
+        for old, new in data.items():
             if old != new:
-                self.cursor.execute('update songs set artist=? where artist=?',
+                self.cursor.execute('update or ignore songs set {}=? where {}=?'.format(field, field),
                                     (new, old))
-                self.cursor.execute('update or ignore artists set name=? where name=?',
-                                    (new, old))
-        self.sql_connection.commit()
+                self.cursor.execute('delete from songs where {}=?'.format(field), (old,))
 
-    def correct_albums(self):
-        ask = lru_cache()(lambda x, y: input(x))
-        ask_yn = lru_cache()(get_yn_promt)
-        self.cursor.execute('select artist, title from albums where confirmed=0')
-        albums = self.cursor.fetchall()
-        self.cursor.execute('select title from albums')
-        self.albums = [i for (i,) in self.cursor.fetchall()]
-        update_songs = []
-        for artist, title in albums:
-            confirmed = 1
-            found = title
-            if not ask_yn('Is {} -- {} correct? '.format(artist, title)):
-                found = self.search(title, 'album')
-                if not ask_yn('Is {} correct? '.format(found)):
-                    found = self.search(title, 'album', incorrect=True)
-                    if not ask_yn('Is {} correct? '.format(found)):
-                        promt = ask('Enter correct album (empty to leave as is): ', found)
-                        if promt == '':
-                            confirmed = 0
-                        found = promt or found
-
-            self.cursor.execute('delete from albums where title=? and artist=?',
-                                (title, artist))
-            self.cursor.execute('insert or ignore into albums (artist, title, confirmed) '
-                                ' values (?, ?, ?)', (artist, found, confirmed))
-
-            if found != title:
-                self.mapping[title] = found
-                update_songs.append((found, title, artist))
-
-        self.cursor.executemany('update or ignore songs set album=? '
-                                ' where album=? and artist=?',
-                                 update_songs)
-        self.dump_mapping()
-        self.sql_connection.commit()
-
-    def correct_tracks(self):
-        ask = lru_cache()(lambda x, y: input(x))
-        ask_yn = lru_cache()(get_yn_promt)
-        self.cursor.execute('select artist, title from albums')
-        albums_titles = self.cursor.fetchall()
-        albums = []
-        for artist, title in albums_titles:
-            self.cursor.execute('select title from songs where album=? '
-                                ' and artist=? and confirmed=0', (title, artist))
-            tracks = self.cursor.fetchall()
-            if tracks:
-                albums.append({'artist': artist, 'title': title,
-                               'list': [i for i, in tracks]})
-
-        for album in albums:
-            confirmed = 1
-            print (album['title'], ' -- ', album['artist'])
-            for i in album['list']:
-                print('\t', i)
-            if get_yn_promt('Are these all correct? '):
-                self.cursor.execute('update or ignore songs set confirmed=1 '
-                                    ' where artist=? and album=?',
-                                    (album['artist'], album['title']))
-            else:
-                for i in album['list']:
-                    found = i
-                    confirmed = 1
-                    if not ask_yn('Is {} correct? '.format(found)):
-                        found = self.search((album['artist'], found), 'track')
-                        if not ask_yn('Is {} correct? '.format(found)):
-                            found = self.search((album['artist'], found),
-                                                'track', incorrect=True)
-                            if not ask_yn('Is {} correct? '.format(found)):
-                                promt = ask('Enter correct track (empty to leave as is): ', found)
-                                if promt == '':
-                                    confirmed = 0
-                                found = promt or found
-                    if found != i:
-                        self.mapping[i] = found
-                    self.cursor.execute('update or ignore songs set confirmed=?, title=?'
-                                        ' where artist=? and album=? and title=?',
-                                        (confirmed, found, album['artist'],
-                                         album['title'], i))
-        self.dump_mapping()
         self.sql_connection.commit()
 
     def print_artists(self):
-        self.cursor.execute('select * from artists')
-        for name in self.cursor:
+        self.cursor.execute('select distinct artist from songs')
+        for name, in self.cursor:
             print(name)
 
 if __name__ == '__main__':
     database = Database('/home/dani/yamp')
-    database.import_folder('/home/dani/tmp_')
+    # database.import_folder('/home/dani/tmp_')
     # database.import_folder('/home/dani/Music')
     print('All imported')
     database.print_artists()
     database.pretty_print()
 
-    database.correct_artists()
-    # database.correct_albums()
-    # database.correct_tracks()
+    print('Starting')
+    database.generic_correction('artist')
+    print('Aritsts done')
+    database.generic_correction('album')
+    print('Albums done')
+    database.generic_correction('track')
     database.print_artists()
     database.pretty_print()
 
