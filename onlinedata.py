@@ -4,6 +4,7 @@ from functools import lru_cache
 
 
 class OnlineData:
+    '''This class provides access to online music datebases, currently Musicbrainz and Last.fm'''
     def __init__(self):
         self.lastfm = pylast.LastFMNetwork('e494d3c2d1e99307336886c9e1f18af2',
                                            '989f1acfe251e590981d485ad9a82bd1')
@@ -12,6 +13,13 @@ class OnlineData:
 
     @lru_cache()
     def generic_search(self, what, query):
+        '''
+           Returns propper name for album, artist or track queried.
+           Arguments:
+           what -- type of query. Must be 'album', 'artist' or 'track'.
+           query -- text queried.
+
+        '''
         assert (what in ['album', 'artist', 'track'])
         mb_methods = {'album': brainz.search_releases,
                       'artist': brainz.search_artists,
