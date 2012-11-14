@@ -22,7 +22,7 @@ class Grooveshark():
     salt_htmlshark = 'greenPlants'
     salt_jsqueue = 'tastyTacos'
     useragent = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.56 Safari/535.11'  # 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1161.0 Safari/537.1'
-    referer = 'http://grooveshark.com/JSQueue.swf?20120521.01'
+    referer = 'http://grooveshark.com/JSQueue.swf?20121002.01'
     referer2 = 'http://grooveshark.com/'
     clientRevision = '20120830'
     clientRevision2 = '20120830.12'
@@ -70,7 +70,9 @@ class Grooveshark():
         elif method == 'getArtistByID':
             query['header']['token'] = self.make_grooveshark_token(method, self.salt_htmlshark)
             query['parameters']['artistID'] = kwargs['artistID']
-            pprint(query)
+        elif method == 'artistGetAllSongsEx':
+            query['header']['token'] = self.make_grooveshark_token(method, self.salt_htmlshark)
+            query['parameters']['artistID'] = kwargs['artistID']
         else:
             raise NotImplementedError(method)
 
@@ -157,6 +159,25 @@ class Grooveshark():
         ungzipped = ungzip(io.BytesIO(response.read()))
         return json.JSONDecoder().decode(ungzipped.decode('utf-8'))
 
+    def artistGetAllSongsEx(self, artist_id):
+        query = self.make_grooveshark_query('artistGetAllSongsEx', artistID=artist_id)
+
+        connection = http.client.HTTPConnection('grooveshark.com')
+
+        response = make_request(connection,
+                                'Can not get artist data',
+                                'POST',
+                                '/more.php?artistGetAllSongsEx',
+                                query,
+                                {'User-Agent': self.useragent,
+                                 'Referer': self.referer2,
+                                 'Content-Type': 'application/json',
+                                 'Accept-Encoding': 'gzip',
+                                 'Cookie': self.cookie})
+
+        ungzipped = ungzip(io.BytesIO(response.read()))
+        return json.JSONDecoder().decode(ungzipped.decode('utf-8'))
+
     def download_from_stream_key(self, stream_key, ip):
         query = urllib.parse.urlencode({'streamKey': stream_key})
         connection = http.client.HTTPConnection(ip)
@@ -218,6 +239,6 @@ if __name__ == '__main__':
     output = open(sys.argv[2], 'wb')
     setup_connection()
     # pprint(singleton.getResultsFromSearch("веня д'ркин", "Artists"))
-    pprint(singleton.getArtistByID(artist_id='998230'))
+    pprint(singleton.artistGetAllSongsEx(artist_id='998230'))
     output.write(download(sys.argv[1]).read())
     output.close()
