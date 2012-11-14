@@ -85,5 +85,16 @@ class OnlineData:
         tag.write()
         return filename
 
-    def top_tracks(self, artist):
-        pass
+    def get_tracks_for_artist(self, artist):
+        results = grooveshark.singleton.getResultsFromSearch(artist, 'Artists')['result']
+        if results:
+            artist_id = int(results[0]['ArtistID'])
+            artist_name = results[0]['ArtistName']
+            if artist_name != artist:
+                print('Query:', artist, '; grooveshark data:', artist_name)
+            songs = grooveshark.singleton.artistGetAllSongsEx(artist_id)
+            songs = [(i['Name'], i['AlbumName'], i['TrackNum'], i['SongID']) for i in songs]
+
+            return songs
+        else:
+            raise NotFoundOnline()
