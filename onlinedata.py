@@ -2,13 +2,19 @@ import pylast
 import musicbrainzngs as brainz
 from functools import lru_cache
 
+import grooveshark
+import vpleer
+import random
+
+from errors import SongNotFound, NotFoundOnline
+from tags import open_tag
+
 
 class OnlineData:
     '''This class provides access to online music datebases, currently Musicbrainz and Last.fm'''
     def __init__(self):
         self.lastfm = pylast.LastFMNetwork('e494d3c2d1e99307336886c9e1f18af2',
                                            '989f1acfe251e590981d485ad9a82bd1')
-        # self.librefm = pylast.LibreFMNetwork()
         brainz.set_useragent('yamp', '0.00', 'http://example.com')
 
     @lru_cache()
@@ -20,6 +26,7 @@ class OnlineData:
            query -- text queried.
 
         '''
+
         assert (what in ['album', 'artist', 'track'])
         mb_methods = {'album': brainz.search_releases,
                       'artist': brainz.search_artists,
@@ -45,4 +52,38 @@ class OnlineData:
                     return result[0].get_name(properly_capitalized=True)
             except:
                 pass
-        return query
+
+        raise NotFoundOnline()
+
+    def download_as(self, title, artist='', album=''):
+        '''Downloads song and set its tags to given title, artist, album'''
+        title = title.strip()
+        artist = artist.strip()
+        album = album.strip()
+        data = None
+        ways = [grooveshark.download, vpleer.download]
+        for download in ways:
+            try:
+                data = download(artist + ' ' + title)
+            except SongNotFound:
+                pass
+            else:
+                break
+        else:
+            raise SongNotFound
+        filename = artist + '-' + title + '__' + str(random.randint(100500))
+        file = open(filename, 'w')
+        file.write(data)
+        tag = open_tag(filename)
+        artist = artist or tag.artist.strip()
+        title = title or tag.title.strip()
+        album = album or tag.album.strip()
+        tag._frames.clear()
+        tag.title = title
+        tag.artist = artist
+        tag.album = album
+        tag.write()
+        return filename
+
+    def top_tracks(self, artist):
+        pass
