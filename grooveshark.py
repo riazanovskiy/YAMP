@@ -10,6 +10,7 @@ import random
 import io
 import hashlib
 import uuid
+import time
 from pprint import pprint
 
 from log import logger
@@ -26,6 +27,7 @@ class Grooveshark():
     referer2 = 'http://grooveshark.com/'
     clientRevision = '20120830'
     clientRevision2 = '20120830.12'
+    timeout = 1200
     header = {'country': {'CC1': '0',
                           'CC2': '0',
                           'CC3': '0',
@@ -76,6 +78,10 @@ class Grooveshark():
         else:
             raise NotImplementedError(method)
 
+        if (method != 'getCommunicationToken'
+            and self.last_time - time.time() > self.timeout):
+            self.getCommunicationToken()
+
         return json.JSONEncoder().encode(query)
 
     def getCommunicationToken(self):
@@ -99,6 +105,7 @@ class Grooveshark():
         decoded = json.JSONDecoder().decode(ungzip(data).decode('utf-8'))
         logger.debug(decoded)
         self.token = decoded['result']
+        self.last_time = time.time()
 
     def getResultsFromSearch(self, songname, search_type):
         connection = http.client.HTTPConnection('grooveshark.com')
@@ -118,7 +125,7 @@ class Grooveshark():
                                  'Cookie': self.cookie})
 
         ungzipped = ungzip(io.BytesIO(response.read()))
-        return json.JSONDecoder().decode(ungzipped.decode('utf-8'))
+        return json.JSONDecoder().decode(ungzipped.decode('utf-8'))['result']
 
     def getStreamKeysFromSongIDs(self, songid):
         query = self.make_grooveshark_query('getStreamKeysFromSongIDs',
@@ -138,7 +145,7 @@ class Grooveshark():
                                  'Cookie': self.cookie})
 
         ungzipped = ungzip(io.BytesIO(response.read()))
-        return json.JSONDecoder().decode(ungzipped.decode('utf-8'))
+        return json.JSONDecoder().decode(ungzipped.decode('utf-8'))['result']
 
     def getArtistByID(self, artist_id):
         query = self.make_grooveshark_query('getArtistByID', artistID=artist_id)
@@ -157,7 +164,7 @@ class Grooveshark():
                                  'Cookie': self.cookie})
 
         ungzipped = ungzip(io.BytesIO(response.read()))
-        return json.JSONDecoder().decode(ungzipped.decode('utf-8'))
+        return json.JSONDecoder().decode(ungzipped.decode('utf-8'))['result']
 
     def artistGetAllSongsEx(self, artist_id):
         query = self.make_grooveshark_query('artistGetAllSongsEx', artistID=artist_id)
@@ -176,7 +183,7 @@ class Grooveshark():
                                  'Cookie': self.cookie})
 
         ungzipped = ungzip(io.BytesIO(response.read()))
-        return json.JSONDecoder().decode(ungzipped.decode('utf-8'))
+        return json.JSONDecoder().decode(ungzipped.decode('utf-8'))['result']
 
     def download_from_stream_key(self, stream_key, ip):
         query = urllib.parse.urlencode({'streamKey': stream_key})
@@ -216,18 +223,20 @@ def download(songname):
     decoded = singleton.getResultsFromSearch(songname, 'Songs')
 
     try:
-        song = decoded['result']['result']['Songs'][0]
+        song = decoded['result']['Songs'][0]
     except Exception:
         try:
-            song = decoded['result']['result'][0]
+            song = decoded['result'][0]
         except:
             raise SongNotFound()
-
-    songid = song['SongID']
+    try:
+        songid = song['SongID']
+    except:
+        raise SongNotFound()
 
     decoded = singleton.getStreamKeysFromSongIDs(songid)
 
-    result = decoded['result'][song['SongID']]
+    result = decoded[songid]
     stream_key = result['streamKey']
     ip = result['ip']
     return singleton.download_from_stream_key(stream_key, ip)
@@ -239,6 +248,7 @@ if __name__ == '__main__':
     output = open(sys.argv[2], 'wb')
     setup_connection()
     # pprint(singleton.getResultsFromSearch("веня д'ркин", "Artists"))
-    pprint(singleton.artistGetAllSongsEx(artist_id='998230'))
-    output.write(download(sys.argv[1]).read())
+    # pprint(singleton.getArtistByID(998230))
+    # pprint(singleton.artistGetAllSongsEx(artist_id='998230'))
+    # output.write(download(sys.argv[1]).read())
     output.close()
