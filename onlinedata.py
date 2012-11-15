@@ -132,21 +132,23 @@ class OnlineData:
         return output
 
     def get_track_list(self, artist, album):
-        #### LAST.FM
+        ##### LAST.FM
+        print('ok10')
         search = self.lastfm.search_for_album(album)
-        page = search.get_next_page()
         found = None
-        while page:
+        print('ok11')
+        page = search.get_next_page()
+        while page and not found:
             for i in page:
-                if normalcase(i.artist) == normalcase(artist):
+                if normalcase(i.artist.name) == normalcase(artist):
                     found = i
                     break
-            page = search.get_next_page()
+        print('ok13')
         if found:
             tracks_lastfm = [(i.title,) for i in found.get_tracks()]
             if tracks_lastfm:
                 return tracks_lastfm
-        #### MUSICBRAINZ
+        ##### MUSICBRAINZ
         found = None
         search = brainz.search_releases(album, artist=artist)['release-list']
         for i in search:
@@ -162,7 +164,7 @@ class OnlineData:
                 return tracks_brainz
 
         found = None
-        #### GROOVESHARK
+        ##### GROOVESHARK
         search = grooveshark.singleton.getResultsFromSearch(artist, 'Artists')['result']
         for i in search:
             if normalcase(i['AlbumName']) == normalcase(album):
@@ -174,3 +176,14 @@ class OnlineData:
             tracks_grooveshark = [i[1:] for i in sorted(tracks_grooveshark)]
             return tracks_grooveshark
         return []
+
+    def artist_of_album(self, album):
+        search = self.lastfm.search_for_album(album)
+        page = search.get_next_page()
+
+        for i in page:
+            if normalcase(i.title) == normalcase(album):
+                return i.artist
+        search = brainz.search_releases(album)['release-list']
+        if search:
+            return search[0]['artist-credit'][0]['artist']['name']

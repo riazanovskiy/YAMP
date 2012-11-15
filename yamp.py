@@ -102,7 +102,7 @@ class Database:
             tag.track, tag.artist, tag.album, tag.title = track, artist, album, title
             tag.write()
 
-    def pretty_print(self, only_good=True):
+    def pretty_print(self, artist=None):
         self.cursor.execute('select artist, album, track, title from songs')
         for (artist, album, track, title) in sorted(self.cursor):
             print('{} -- {} -- #{} {}'.format(artist, album, track, title))
@@ -252,16 +252,11 @@ class Database:
 
     def add_tracks_for_artist(self, artist, count=20):
         artist = self.correct_artist(artist)
-        print(artist)
         self.cursor.execute('select title from songs where artist=?', (artist,))
         known_tracks = set([i for i, in self.cursor])
-        pprint(known_tracks)
         suggestions = self.online.get_tracks_for_artist(artist)
-        print(len(suggestions))
         suggestions = [i for i in suggestions if i[0] not in known_tracks]
-        print(len(suggestions))
         suggestions = [i for i in suggestions if not any(j in i for j in known_tracks)]
-        print(len(suggestions))
         for song in suggestions[:count]:
             self.cursor.execute('insert or ignore into songs'
                                 ' (artist, title, album, track, filename, has_file)'
@@ -278,14 +273,10 @@ class Database:
         for i in artists.values():
             for j in artists.values():
                 if (1.0 - levenshtein(i, j) / max(len(i), len(j))) > 0.9:
-                    print(i, j, 1.0 - levenshtein(i, j) / max(len(i), len(j)))
                     matches[i] += 1
                     matches[j] += 1
 
         to_correct = [i for i in matches if matches[i] > 2]
-
-        for i in to_correct:
-            print(i, matches[i])
 
         for artist in to_correct:
             improved = self.online.generic_search('artist', artist)
@@ -298,13 +289,17 @@ class Database:
         self.sql_connection.commit()
 
     def fill_album(self, artist, album):
+        print('ok0')
         artist = self.correct_artist(artist)
+        print('ok1')
         fetched_tracks = self.online.get_track_list(artist, album)
+        print('ok2')
         for i in range(len(fetched_tracks)):
             if len(fetched_tracks[i]) < 2:
                 fetched_tracks[i] = (fetched_tracks[i][0], 0)
         self.cursor.execute('select track, title from songs where artist=? and album=?',
                             (artist, album))
+        print('ok3')
         known_tracks = sorted(self.cursor)
         for i in range(len(fetched_tracks)):
             for idx, song in known_tracks:
@@ -322,6 +317,27 @@ class Database:
                                     (fetched_tracks[i][1], i + 1, artist, album, fetched_tracks[i][0],
                                      'NOFILE' + ''.join(random.choice(string.hexdigits) for x in range(16))))
         self.sql_connection.commit()
+        print('ok10')
+
+    def get_artists_list(self):
+        self.cursor.execute('select distinct artist from songs')
+        return (i for i, in self.cursor if i)
+
+    def get_albums_list(self, artist=None):
+        if artist:
+            self.cursor.execute('select distinct album from songs where artist=?',
+                                (artist,))
+        else:
+            self.cursor.execute('select distinct album from songs')
+        return (i for i, in self.cursor if i)
+
+    def get_artist_of_album(self, album):
+        self.cursor.execute('select artist from songs where album=?', (album,))
+        artists = list(self.cursor)
+        if artists:
+            return artists[0][0]
+        else:
+            return self.online.artist_of_album(album)
 
 if __name__ == '__main__':
     database = Database('/home/dani/yamp')
@@ -335,8 +351,8 @@ if __name__ == '__main__':
 ##########################################
 
     # database.improve_metadata()
-    database.pretty_print()
-    database.fill_album('Несчастный случай', 'Тоннель в конце света')
+    # database.pretty_print()
+    # database.fill_album('Несчастный случай', 'Тоннель в конце света')
     # database.add_tracks_for_artist('Pink Floyd', count=30)
     # database.add_tracks_for_artist('Сплин')
-    database.pretty_print()
+    # database.pretty_print()
