@@ -1,14 +1,16 @@
-import pylast
-import musicbrainzngs as brainz
+import random
 from functools import lru_cache
 from pprint import pprint
 
+import pylast
+import musicbrainzngs as brainz
+
 import grooveshark
 import vpleer
-import random
 
 from errors import SongNotFound, NotFoundOnline
 from tags import open_tag
+from misc import normalcase
 
 
 class OnlineData:
@@ -127,3 +129,47 @@ class OnlineData:
         #                        '-1', '0'))
 
         return output
+
+    def get_track_list(self, artist, album):
+        #### LAST.FM
+        search = self.lastfm.search_for_album(album)
+        page = search.get_next_page()
+        found = None
+        while page:
+            for i in page:
+                if normalcase(i.artist) == normalcase(artist):
+                    found = i
+                    break
+            page = search.get_next_page()
+        if found:
+            tracks_lastfm = [i.title for i in found.get_tracks()]
+            if tracks_lastfm:
+                return tracks_lastfm
+        #### MUSICBRAINZ
+        found = None
+        search = brainz.search_releases(album, artist=artist)['release-list']
+        for i in search:
+            if (normalcase(i['artist-credit-phrase']) == normalcase(artist) and
+                normalcase(i['title']) == normalcase(album)):
+                found = i['id']
+                break
+        if found:
+            data = brainz.get_release_by_id(found, includes='recordings')['release']['medium-list'][0]['track-list']
+            tracks_brainz = [(i['position'], i['recording']['title']) for i in data]
+            tracks_brainz = [i[1] for i in sorted(tracks_brainz)]
+            if tracks_brainz:
+                return tracks_brainz
+
+        found = None
+        #### GROOVESHARK
+        search = grooveshark.singleton.getResultsFromSearch(artist, 'Artists')['result']
+        for i in search:
+            if normalcase(i['AlbumName']) == normalcase(album):
+                found = i['AlbumID']
+                break
+        if found:
+            data = grooveshark.singleton.albumGetAllSongs(found)
+            tracks_grooveshark = [(i['TrackNum'], i['Name'], i['SongID']) for i in data]
+            tracks_grooveshark = [i[1:] for i in sorted(tracks_grooveshark)]
+            return tracks_grooveshark
+        return []

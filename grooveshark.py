@@ -75,6 +75,9 @@ class Grooveshark():
         elif method == 'artistGetAllSongsEx':
             query['header']['token'] = self.make_grooveshark_token(method, self.salt_htmlshark)
             query['parameters']['artistID'] = kwargs['artistID']
+        elif method == 'albumGetAllSongs':
+            query['header']['token'] = self.make_grooveshark_token(method, self.salt_htmlshark)
+            query['parameters']['albumID'] = kwargs['albumID']
         else:
             raise NotImplementedError(method)
 
@@ -175,6 +178,25 @@ class Grooveshark():
                                 'Can not get artist data',
                                 'POST',
                                 '/more.php?artistGetAllSongsEx',
+                                query,
+                                {'User-Agent': self.useragent,
+                                 'Referer': self.referer2,
+                                 'Content-Type': 'application/json',
+                                 'Accept-Encoding': 'gzip',
+                                 'Cookie': self.cookie})
+
+        ungzipped = ungzip(io.BytesIO(response.read()))
+        return json.JSONDecoder().decode(ungzipped.decode('utf-8'))['result']
+
+    def albumGetAllSongs(self, album_id):
+        query = self.make_grooveshark_query('albumGetAllSongs', albumID=album_id)
+
+        connection = http.client.HTTPConnection('grooveshark.com')
+
+        response = make_request(connection,
+                                'Can not get track list',
+                                'POST',
+                                '/more.php?albumGetAllSongs',
                                 query,
                                 {'User-Agent': self.useragent,
                                  'Referer': self.referer2,

@@ -1,6 +1,8 @@
 import os
 import gzip
 import urllib
+import re
+from functools import lru_cache
 
 
 def levenshtein(s1, s2):
@@ -51,6 +53,7 @@ def is_all_ascii(data):
     else:
         return True
 
+
 def utf2cp1251(str):
     try:
         return str.encode('utf-8').decode('cp1251')
@@ -80,3 +83,8 @@ def make_request(connection, error_message, *args, **kwargs):
 
 def ungzip(data):
     return gzip.GzipFile(fileobj=data).read()
+
+
+@lru_cache()
+def normalcase(data):
+    return re.sub(' +', ' ', re.sub('[][._/(:;\)-]', ' ', data.upper()))

@@ -19,7 +19,7 @@ import onlinedata
 from log import logger
 from onlinedata import OnlineData
 from tags import open_tag
-from misc import filesize, is_all_ascii, levenshtein
+from misc import filesize, is_all_ascii, levenshtein, normalcase
 from errors import DoublecheckEncodingException
 
 
@@ -158,9 +158,9 @@ class Database:
             tag.write()
 
     def pretty_print(self, only_good=True):
-        self.cursor.execute('select artist, album, title from songs')
-        for (artist, album, title) in sorted(self.cursor):
-            print('{} -- {} -- {}'.format(artist, album, title))
+        self.cursor.execute('select artist, album, track, title from songs')
+        for (artist, album, track, title) in sorted(self.cursor):
+            print('{} -- {} -- #{} {}'.format(artist, album, track, title))
 
     def print_tags(self):
         self.cursor.execute('select filename from songs where has_file=1')
@@ -285,17 +285,10 @@ class Database:
                         for i in tracks:
                             self.remove_by_list(tracks, common)
 
-    def deal_with_track_numbers(self):
-        pass
-        # self.cursor.execute('select distinct album, artist from songs')
-        # albums = list(self.cursor)
-        # pprint(albums)
-
     def improve_metadata(self):
         self.remove_extensions_from_tracks()
         # self.remove_common_in_dir()
         # self.remove_common()
-        self.deal_with_track_numbers()
 
     def correct_artist(self, artist):
         improved = self.online.generic_search('artist', artist)
@@ -335,7 +328,7 @@ class Database:
     def merge_artists(self):
         self.cursor.execute('select distinct artist from songs')
         artists = list(self.cursor)
-        artists = {i: re.sub(' +', ' ', re.sub('[][._/(:;\)-]', ' ', i.upper())) for i, in artists if i}
+        artists = {i: normalcase(i) for i, in artists if i}
         matches = {i: 0 for i in artists.values()}
         for i in artists.values():
             for j in artists.values():
@@ -359,6 +352,29 @@ class Database:
                     self.cursor.execute('delete from songs where artist=?', (i,))
         self.sql_connection.commit()
 
+    def fill_album(self, artist, album):
+        artist = self.correct_artist(artist)
+        fetched_tracks = self.online.get_track_list(artist, album)
+        self.cursor.execute('select track, title from songs where artist=? and album=?',
+                            (artist, album))
+        known_tracks = sorted(self.cursor)
+        for i in range(len(fetched_tracks)):
+            for idx, song in known_tracks:
+                if song == fetched_tracks[i]:
+                    if i + 1 != idx:
+                        print('Song', song, ': ', idx, ' -> ', i + 1)
+                        self.cursor.execute('update songs set track=? where title=? and '
+                                            ' artist=? and album=?',
+                                            (i + 1, song, artist, album))
+                    break
+            else:
+                self.cursor.execute('insert into songs (track, artist, album, '
+                                                      ' title, filename, has_file) '
+                                    'values (?, ?, ?, ?, ?, 0) ',
+                                    (i + 1, artist, album, fetched_tracks[i],
+                                     'NOFILE' + ''.join(random.choice(string.hexdigits) for x in range(16))))
+        self.sql_connection.commit()
+
 if __name__ == '__main__':
     database = Database('/home/dani/yamp')
     # database.import_folder('/home/dani/tmp_')
@@ -372,6 +388,7 @@ if __name__ == '__main__':
 
     # database.improve_metadata()
     database.pretty_print()
+    database.fill_album('Несчастный случай', 'Тоннель в конце света')
     # database.add_tracks_for_artist('Pink Floyd', count=30)
     # database.add_tracks_for_artist('Сплин')
     database.pretty_print()
