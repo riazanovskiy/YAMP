@@ -1,6 +1,7 @@
 import pylast
 import musicbrainzngs as brainz
 from functools import lru_cache
+from pprint import pprint
 
 import grooveshark
 import vpleer
@@ -16,6 +17,7 @@ class OnlineData:
         self.lastfm = pylast.LastFMNetwork('e494d3c2d1e99307336886c9e1f18af2',
                                            '989f1acfe251e590981d485ad9a82bd1')
         brainz.set_useragent('yamp', '0.00', 'http://example.com')
+        grooveshark.setup_connection()
 
     @lru_cache()
     def generic_search(self, what, query):
@@ -70,7 +72,7 @@ class OnlineData:
             else:
                 break
         else:
-            raise SongNotFound
+            raise SongNotFound()
         filename = artist + '-' + title + '__' + str(random.randint(100500))
         file = open(filename, 'w')
         file.write(data)
@@ -78,23 +80,47 @@ class OnlineData:
         artist = artist or tag.artist.strip()
         title = title or tag.title.strip()
         album = album or tag.album.strip()
+        track = tag.track
         tag._frames.clear()
         tag.title = title
         tag.artist = artist
         tag.album = album
+        tag.track = track
         tag.write()
         return filename
 
     def get_tracks_for_artist(self, artist):
+        output = []
+
+        results = self.lastfm.search_for_artist(artist).get_next_page()
+
+        if results:
+            if results[0].name != artist:
+                print('Query:', artist, '; last.fm data:', results[0].name)
+            songs = [i.item for i in results[0].get_top_tracks()]
+            for i in songs:
+                output.append((i.title, i.get_album().title, '-1', '0'))
         results = grooveshark.singleton.getResultsFromSearch(artist, 'Artists')['result']
+
         if results:
             artist_id = int(results[0]['ArtistID'])
             artist_name = results[0]['ArtistName']
             if artist_name != artist:
                 print('Query:', artist, '; grooveshark data:', artist_name)
             songs = grooveshark.singleton.artistGetAllSongsEx(artist_id)
-            songs = [(i['Name'], i['AlbumName'], i['TrackNum'], i['SongID']) for i in songs]
+            output += [(i['Name'], i['AlbumName'], i['TrackNum'], i['SongID']) for i in songs]
 
-            return songs
-        else:
-            raise NotFoundOnline()
+        # results = brainz.search_artists(artist)['artist-list']
+        # if results:
+        #     artist_id = results[0]['id']
+        #     artist_name = results[0]['name']
+        #     if artist_name != artist:
+        #         print('Query:', artist, '; musicbrainz data:', artist_name)
+        #     songs = brainz.get_artist_by_id(artist_id, includes=['recordings'])
+        #     songs = songs['artist']['recording-list']
+        #     for i in songs:
+        #         search = brainz.get_recording_by_id(i['id'], includes=['releases'])
+        #         output.append((i['title'], i[search['recording']['release-list'][0]['title']],
+        #                        '-1', '0'))
+
+        return output
