@@ -19,7 +19,7 @@ import onlinedata
 from log import logger
 from onlinedata import OnlineData
 from tags import open_tag
-from misc import filesize, is_all_ascii
+from misc import filesize, is_all_ascii, levenshtein
 from errors import DoublecheckEncodingException
 
 
@@ -314,6 +314,7 @@ class Database:
 
     def add_tracks_for_artist(self, artist, count=20):
         artist = self.correct_artist(artist)
+        print(artist)
         self.cursor.execute('select title from songs where artist=?', (artist,))
         known_tracks = set([i for i, in self.cursor])
         pprint(known_tracks)
@@ -331,6 +332,32 @@ class Database:
                                 ''.join(random.choice(string.hexdigits) for x in range(16))))
         self.sql_connection.commit()
 
+    def merge_artists(self):
+        self.cursor.execute('select distinct artist from songs')
+        artists = list(self.cursor)
+        artists = {i: re.sub(' +', ' ', re.sub('[][._/(:;\)-]', ' ', i.upper())) for i, in artists if i}
+        matches = {i: 0 for i in artists.values()}
+        for i in artists.values():
+            for j in artists.values():
+                if (1.0 - levenshtein(i, j) / max(len(i), len(j))) > 0.9:
+                    print(i, j, 1.0 - levenshtein(i, j) / max(len(i), len(j)))
+                    matches[i] += 1
+                    matches[j] += 1
+
+        to_correct = [i for i in matches if matches[i] > 2]
+
+        for i in to_correct:
+            print(i, matches[i])
+
+        for artist in to_correct:
+            improved = self.online.generic_search('artist', artist)
+            print('REPLACING', artist, 'WITH', improved)
+            for i, j in artists.items():
+                if j == artist:
+                    self.cursor.execute('update or ignore songs set artist=? where artist=?',
+                                        (improved, i))
+                    self.cursor.execute('delete from songs where artist=?', (i,))
+        self.sql_connection.commit()
 
 if __name__ == '__main__':
     database = Database('/home/dani/yamp')
@@ -344,7 +371,7 @@ if __name__ == '__main__':
 ##########################################
 
     # database.improve_metadata()
-    # database.pretty_print()
-    # database.add_tracks_for_artist('Pink Floyd')
-    database.add_tracks_for_artist('спЛин')
+    database.pretty_print()
+    # database.add_tracks_for_artist('Pink Floyd', count=30)
+    # database.add_tracks_for_artist('Сплин')
     database.pretty_print()

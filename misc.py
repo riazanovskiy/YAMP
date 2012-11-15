@@ -11,7 +11,6 @@ def levenshtein(s1, s2):
     previous_row = range(len(s2) + 1)
     for i, c1 in enumerate(s1):
         current_row = [i + 1]
-        print(current_row)
         for j, c2 in enumerate(s2):
             current_row.append(min(previous_row[j + 1] + 1, current_row[j] + 1,
                                previous_row[j] + (c1 != c2)))
@@ -28,13 +27,6 @@ def longest_common_substring(data):
                     all(data[0][i:i + j] in x for x in data)):
                     substr = data[0][i:i + j]
     return substr
-
-
-def safe_print(text):
-    try:
-        print (text)
-    except:
-        pass
 
 
 def filesize(file):
