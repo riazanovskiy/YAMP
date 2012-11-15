@@ -11,7 +11,6 @@ import io
 import hashlib
 import uuid
 import time
-from pprint import pprint
 
 from log import logger
 from errors import SongNotFound
@@ -28,6 +27,7 @@ class Grooveshark():
     clientRevision = '20120830'
     clientRevision2 = '20120830.12'
     timeout = 1200
+    cookie = None
     header = {'country': {'CC1': '0',
                           'CC2': '0',
                           'CC3': '0',

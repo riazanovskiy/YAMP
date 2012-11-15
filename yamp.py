@@ -1,45 +1,34 @@
 # -*- coding: utf-8 -*-
-print ('Started ' + __name__)
+# print ('Started ' + __name__)
 import os
-from log import logger
 import shutil
 import sqlite3
-from tags import open_tag
-from functools import lru_cache
 import difflib
-import enchant
+import re
+import random
+import string
+from functools import lru_cache
 from collections import defaultdict
+from pprint import pprint
+
+import enchant
+import mp3utils
+import pytils
+
+import onlinedata
+from log import logger
 from onlinedata import OnlineData
+from tags import open_tag
+from misc import filesize, is_all_ascii
+from errors import DoublecheckEncodingException
 
-CMD_CHAR = '$' if os.name == 'nt' else '>'
 
-languages = ['en_US', 'de_DE', 'ru_RU']  # FIXME add french
+languages = ['en_US', 'de_DE', 'ru_RU']  # FIXME: add french
 enchant_dictionaries = [enchant.Dict(lang) for lang in languages]
-
-
-def safe_print(text):
-    try:
-        print (text)
-    except:
-        pass
-
-
-def filesize(file):
-    return os.stat(file).st_size
 
 
 def is_music_file(filename):
     return filename.endswith('.mp3') and filesize(filename)
-
-
-def valid_filename(filename):
-    invalid = frozenset('*”"/\[]:;|=,')
-    return ''.join('-' if i in invalid else i for i in filename)
-
-
-def verify_dir(name):
-    if not os.path.isdir(name):
-        os.makedirs(name)
 
 
 def get_yn_promt(promt):
@@ -49,24 +38,27 @@ def get_yn_promt(promt):
     return ans == 'y'
 
 
-def is_all_ascii(data):
-    try:
-        data.encode('ascii')
-    except UnicodeEncodeError:
-        return False
-    else:
-        return True
+def measure_spelling(words, strict=True):
+    _words = re.sub('[][._/(:;\)-]', ' ', words).split()
+    spelling = 0.0
+    for word in _words:
+        if not word.isdigit():
+            for d in enchant_dictionaries:
+                if d.check(word):
+                    spelling += 1
+                    break
+                elif not strict and len(d.suggest(word)) > 0:
+                    spelling += 0.5
+                    break
+
+    spelling /= len(_words)
+    # print('Spelling for', words, 'is', spelling)
+
+    return spelling
 
 
-def measure_spelling(words):
-    words = words.split()
-    spelling = 0
-    for word in words:
-        for d in enchant_dictionaries:
-            if d.check(word):
-                spelling += 1
-                break
-    return spelling / len(words)
+def get_translit(words):
+    return ' '.join(pytils.translit.detranslify(i) for i in re.sub('[._/-]', ' ', words).split())
 
 
 def improve_encoding(request):
@@ -83,6 +75,15 @@ def improve_encoding(request):
                 result = suggest
         except:
             continue
+
+    # if spelling < 0.1 and result == request:
+        # result = get_translit(request)
+        # if measure_spelling(result, False) > 0.99:
+            # print('Detranslifyed:', result)
+            # exc = DoublecheckEncodingException()
+            # exc.improved = result
+            # raise exc
+
     return result
 
 
@@ -96,7 +97,12 @@ class Database:
         self.cursor.execute('create table if not exists songs (track int,'
                             ' artist text, album text, title text, bitrate int,'
                             ' duration int, filename text unique,'
-                            ' has_file boolean, confirmed boolean, '
+                            ' has_file boolean, '
+                            ' mbid text, '
+                            # ' artist_as_online boolean, '
+                            ' album_as_online boolean, '
+                            # ' title_as_online boolean,'
+                            ' grooveshark_id int, '
                             ' unique(artist, title, album))')
 
         self.cursor.execute('create unique index if not exists songsindex '
@@ -129,11 +135,15 @@ class Database:
                 album = tags.album.strip()
                 title = tags.title.strip()
                 # FIXME
-                bitrate = duration = 0
+                duration = 0
+                try:
+                    bitrate = mp3utils.mp3info(file)['BITRATE']
+                except:
+                    bitrate = 0
+
                 self.cursor.execute('insert or ignore into songs (track, artist, album,'
-                                    ' title, bitrate, duration, filename, has_file, '
-                                    ' confirmed)'
-                                    'values (?, ?, ?, ?, ?, ?, ?, 1, 0)', (track,
+                                    ' title, bitrate, duration, filename, has_file)'
+                                    'values (?, ?, ?, ?, ?, ?, ?, 1)', (track,
                                     artist, album, title, bitrate, duration,
                                     file))
         self.sql_connection.commit()
@@ -168,7 +178,10 @@ class Database:
         data = {i: i for (i,) in self.cursor}
 
         for i in data:
-            data[i] = improve_encoding(i)
+            try:
+                data[i] = improve_encoding(i)
+            except DoublecheckEncodingException as exc:
+                data[i] = self.online.generic_search(what, exc.improved)
 
         case_mapping = defaultdict(lambda: [])
         for i in data.values():
@@ -179,7 +192,11 @@ class Database:
             if (len(case_mapping[i]) > 1 or case_mapping[i][0].isupper()
                 or case_mapping[i][0].islower()):
                 print('Lookup for', i)
-                cases[i] = self.online.generic_search(what, i)
+                try:
+                    cases[i] = self.online.generic_search(what, i)
+                    print(cases[i])
+                except onlinedata.NotFoundOnline:
+                    pass
             else:
                 cases[i] = case_mapping[i][0]
 
@@ -199,24 +216,119 @@ class Database:
         for name, in self.cursor:
             print(name)
 
+    def remove_extensions_from_tracks(self):
+        self.cursor.execute('select distinct title from songs')
+        data = {i: i for (i,) in self.cursor}
+        to_remove = ['.mp3', '.MP3', 'mp3', 'MP3']
+        for i in data:
+            for j in to_remove:
+                if j in i:
+                    data[i].replace(j, '')
+                    break
+        for i, j in data.items():
+            if i != j:
+                self.cursor.execute('update songs set title=? where title=?',
+                                    (j, i))
+        self.sql_connection.commit()
+
+    def remove_by_list(self, tracks, what):
+        for i in tracks:
+            updated = i.replace(what, '')
+            if updated != i:
+                print('REPLACING', i, 'WITH', updated)
+                self.cursor.execute('update songs set title=? where title=?',
+                                    (updated, i))
+
+    def remove_common_in_dir(self):
+        self.cursor.execute('select filename from songs')
+        filenames = [os.path.normpath(os.path.split(i)[0]) for i, in self.cursor]
+        print(len(filenames))
+        filenames = set(filenames)
+        print(len(filenames))
+        for directory in filenames:
+            self.cursor.execute("select title from songs where filename like ?",
+                                 (directory + '%',))
+            tracks = [i for i, in self.cursor]
+            if len(tracks) > 2:  # FIXME
+                common = longest_common_substring(tracks)
+                if common:
+                    if all(i.startswith(common) for i in tracks):
+                        self.remove_by_list(tracks, common)
+            self.cursor.execute('select title from songs where filename like ?',
+                                 (directory + '%',))
+            tracks = [i for i, in self.cursor]
+            if len(tracks) > 2:  # FIXME
+                common = longest_common_substring(tracks)
+                if common:
+                    if all(i.endswith(common) for i in tracks):
+                        self.remove_by_list(tracks, common)
+
+    def remove_common(self):
+        self.cursor.execute('select distinct album from songs')
+        albums = list(self.cursor)
+        for album in albums:
+            self.cursor.execute('select title from songs where album=?', album)
+            tracks = [i for i, in self.cursor]
+            if len(tracks) > 2:  # FIXME
+                common = longest_common_substring(tracks)
+                if common:
+                    if all(i.startswith(common) for i in tracks):
+                        for i in tracks:
+                            self.remove_by_list(tracks, common)
+
+            self.cursor.execute('select title from songs where album=?', album)
+            tracks = [i for i, in self.cursor]
+            if len(tracks) > 2:  # FIXME
+                common = longest_common_substring(tracks)
+                if common:
+                    if all(i.endswith(common) for i in tracks):
+                        for i in tracks:
+                            self.remove_by_list(tracks, common)
+
+    def deal_with_track_numbers(self):
+        pass
+        # self.cursor.execute('select distinct album, artist from songs')
+        # albums = list(self.cursor)
+        # pprint(albums)
+
+    def improve_metadata(self):
+        self.remove_extensions_from_tracks()
+        # self.remove_common_in_dir()
+        # self.remove_common()
+        self.deal_with_track_numbers()
+
+    def add_tracks_for_artist(self, artist, count=20):
+        self.cursor.execute('select title from songs where artist=?', (artist,))
+        known_tracks = set([i for i, in self.cursor])
+        pprint(known_tracks)
+        suggestions = self.online.get_tracks_for_artist(artist)
+        print(len(suggestions))
+        suggestions = [i for i in suggestions if i[0] not in known_tracks]
+        print(len(suggestions))
+        suggestions = [i for i in suggestions if not any(j in i for j in known_tracks)]
+        print(len(suggestions))
+        for song in suggestions[:count]:
+            self.cursor.execute('insert or ignore into songs'
+                                ' (artist, title, album, track, filename, has_file)'
+                                ' values (?, ?, ?, ?, ?, 0)',
+                                (artist, song[0], song[1], song[2], 'NOFILE' +
+                                ''.join(random.choice(string.hexdigits) for x in range(16))))
+        self.sql_connection.commit()
+        # pprint(suggestions)
+
 if __name__ == '__main__':
     database = Database('/home/dani/yamp')
     # database.import_folder('/home/dani/tmp_')
     # database.import_folder('/home/dani/Music')
-    print('All imported')
-    database.print_artists()
-    database.pretty_print()
+    # database.remove_extensions_from_tracks()
+    # database.generic_correction('artist')
+    # database.generic_correction('album')
+    # database.generic_correction('track')
 
-    print('Starting')
-    database.generic_correction('artist')
-    print('Aritsts done')
-    database.generic_correction('album')
-    print('Albums done')
-    database.generic_correction('track')
-    database.print_artists()
-    database.pretty_print()
+##########################################
 
-# database.move_files()
-# database.user_control()
-# database.correct_tags()
-# database.writeout()
+    # database.improve_metadata()
+    database.pretty_print()
+    # database.add_tracks_for_artist('Pink Floyd')
+    database.add_tracks_for_artist('Сплин')
+    database.pretty_print()

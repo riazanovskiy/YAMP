@@ -99,7 +99,10 @@ class OnlineData:
                 print('Query:', artist, '; last.fm data:', results[0].name)
             songs = [i.item for i in results[0].get_top_tracks()]
             for i in songs:
-                output.append((i.title, i.get_album().title, '-1', '0'))
+                try:
+                    output.append((i.title, i.get_album().title, '-1', '0'))
+                except:
+                    pass
         results = grooveshark.singleton.getResultsFromSearch(artist, 'Artists')['result']
 
         if results:
