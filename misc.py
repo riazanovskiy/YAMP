@@ -4,6 +4,62 @@ import urllib
 import re
 from functools import lru_cache
 
+import enchant
+import pytils
+
+
+languages = ['en_US', 'de_DE', 'ru_RU']  # FIXME: add french
+enchant_dictionaries = [enchant.Dict(lang) for lang in languages]
+
+
+def measure_spelling(words, strict=True):
+    _words = re.sub('[][._/(:;\)-]', ' ', words).split()
+    spelling = 0.0
+    for word in _words:
+        if not word.isdigit():
+            for d in enchant_dictionaries:
+                if d.check(word):
+                    spelling += 1
+                    break
+                elif not strict and len(d.suggest(word)) > 0:
+                    spelling += 0.5
+                    break
+
+    spelling /= len(_words)
+    # print('Spelling for', words, 'is', spelling)
+
+    return spelling
+
+
+def get_translit(words):
+    return ' '.join(pytils.translit.detranslify(i) for i in re.sub('[._/-]', ' ', words).split())
+
+
+def improve_encoding(request):
+    if is_all_ascii(request):
+        return request
+    attepmts = [('cp1252', 'cp1251'), ('cp1251', 'cp1252')]
+    result = request
+    spelling = measure_spelling(request)
+    for dst, src in attepmts:
+        try:
+            suggest = request.encode(dst).decode(src)
+            quality = measure_spelling(suggest)
+            if quality > spelling:
+                result = suggest
+        except:
+            continue
+
+    # if spelling < 0.1 and result == request:
+        # result = get_translit(request)
+        # if measure_spelling(result, False) > 0.99:
+            # print('Detranslifyed:', result)
+            # exc = DoublecheckEncodingException()
+            # exc.improved = result
+            # raise exc
+
+    return result
+
 
 def levenshtein(s1, s2):
     if len(s1) < len(s2):

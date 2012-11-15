@@ -11,20 +11,14 @@ from functools import lru_cache
 from collections import defaultdict
 from pprint import pprint
 
-import enchant
 import mp3utils
-import pytils
 
 import onlinedata
 from log import logger
 from onlinedata import OnlineData
 from tags import open_tag
-from misc import filesize, is_all_ascii, levenshtein, normalcase
+from misc import filesize, is_all_ascii, levenshtein, normalcase, improve_encoding
 from errors import DoublecheckEncodingException
-
-
-languages = ['en_US', 'de_DE', 'ru_RU']  # FIXME: add french
-enchant_dictionaries = [enchant.Dict(lang) for lang in languages]
 
 
 def is_music_file(filename):
@@ -36,55 +30,6 @@ def get_yn_promt(promt):
     while ans not in ['y', 'n', '']:
         ans = input(promt)
     return ans == 'y'
-
-
-def measure_spelling(words, strict=True):
-    _words = re.sub('[][._/(:;\)-]', ' ', words).split()
-    spelling = 0.0
-    for word in _words:
-        if not word.isdigit():
-            for d in enchant_dictionaries:
-                if d.check(word):
-                    spelling += 1
-                    break
-                elif not strict and len(d.suggest(word)) > 0:
-                    spelling += 0.5
-                    break
-
-    spelling /= len(_words)
-    # print('Spelling for', words, 'is', spelling)
-
-    return spelling
-
-
-def get_translit(words):
-    return ' '.join(pytils.translit.detranslify(i) for i in re.sub('[._/-]', ' ', words).split())
-
-
-def improve_encoding(request):
-    if is_all_ascii(request):
-        return request
-    attepmts = [('cp1252', 'cp1251'), ('cp1251', 'cp1252')]
-    result = request
-    spelling = measure_spelling(request)
-    for dst, src in attepmts:
-        try:
-            suggest = request.encode(dst).decode(src)
-            quality = measure_spelling(suggest)
-            if quality > spelling:
-                result = suggest
-        except:
-            continue
-
-    # if spelling < 0.1 and result == request:
-        # result = get_translit(request)
-        # if measure_spelling(result, False) > 0.99:
-            # print('Detranslifyed:', result)
-            # exc = DoublecheckEncodingException()
-            # exc.improved = result
-            # raise exc
-
-    return result
 
 
 class Database:
@@ -355,23 +300,26 @@ class Database:
     def fill_album(self, artist, album):
         artist = self.correct_artist(artist)
         fetched_tracks = self.online.get_track_list(artist, album)
+        for i in range(len(fetched_tracks)):
+            if len(fetched_tracks[i]) < 2:
+                fetched_tracks[i] = (fetched_tracks[i][0], 0)
         self.cursor.execute('select track, title from songs where artist=? and album=?',
                             (artist, album))
         known_tracks = sorted(self.cursor)
         for i in range(len(fetched_tracks)):
             for idx, song in known_tracks:
-                if song == fetched_tracks[i]:
+                if song == fetched_tracks[i][0]:
                     if i + 1 != idx:
                         print('Song', song, ': ', idx, ' -> ', i + 1)
-                        self.cursor.execute('update songs set track=? where title=? and '
-                                            ' artist=? and album=?',
-                                            (i + 1, song, artist, album))
+                        self.cursor.execute('update songs set track=?, grooveshark_id=? '
+                                            ' where title=? and artist=? and album=?',
+                                            (i + 1, fetched_tracks[i][1], song, artist, album))
                     break
             else:
-                self.cursor.execute('insert into songs (track, artist, album, '
+                self.cursor.execute('insert into songs (grooveshark_id, track, artist, album, '
                                                       ' title, filename, has_file) '
-                                    'values (?, ?, ?, ?, ?, 0) ',
-                                    (i + 1, artist, album, fetched_tracks[i],
+                                    'values (?, ?, ?, ?, ?, ?, 0) ',
+                                    (fetched_tracks[i][1], i + 1, artist, album, fetched_tracks[i][0],
                                      'NOFILE' + ''.join(random.choice(string.hexdigits) for x in range(16))))
         self.sql_connection.commit()
 

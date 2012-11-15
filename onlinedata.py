@@ -11,6 +11,7 @@ import vpleer
 from errors import SongNotFound, NotFoundOnline
 from tags import open_tag
 from misc import normalcase
+from misc import improve_encoding
 
 
 class OnlineData:
@@ -142,7 +143,7 @@ class OnlineData:
                     break
             page = search.get_next_page()
         if found:
-            tracks_lastfm = [i.title for i in found.get_tracks()]
+            tracks_lastfm = [(i.title,) for i in found.get_tracks()]
             if tracks_lastfm:
                 return tracks_lastfm
         #### MUSICBRAINZ
@@ -156,7 +157,7 @@ class OnlineData:
         if found:
             data = brainz.get_release_by_id(found, includes='recordings')['release']['medium-list'][0]['track-list']
             tracks_brainz = [(i['position'], i['recording']['title']) for i in data]
-            tracks_brainz = [i[1] for i in sorted(tracks_brainz)]
+            tracks_brainz = [(i[1],) for i in sorted(tracks_brainz)]
             if tracks_brainz:
                 return tracks_brainz
 
@@ -169,7 +170,7 @@ class OnlineData:
                 break
         if found:
             data = grooveshark.singleton.albumGetAllSongs(found)
-            tracks_grooveshark = [(i['TrackNum'], i['Name'], i['SongID']) for i in data]
+            tracks_grooveshark = [(i['TrackNum'], improve_encoding(i['Name']), i['SongID']) for i in data]
             tracks_grooveshark = [i[1:] for i in sorted(tracks_grooveshark)]
             return tracks_grooveshark
         return []
