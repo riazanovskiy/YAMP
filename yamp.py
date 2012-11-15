@@ -163,7 +163,7 @@ class Database:
             print('{} -- {} -- {}'.format(artist, album, title))
 
     def print_tags(self):
-        self.cursor.execute('select filename from songs')
+        self.cursor.execute('select filename from songs where has_file=1')
         for i in self.cursor:
             print('\n'.join((map(repr, open_tag(i[0]).frames()))) + '\n')
 
@@ -297,7 +297,23 @@ class Database:
         # self.remove_common()
         self.deal_with_track_numbers()
 
+    def correct_artist(self, artist):
+        improved = self.online.generic_search('artist', artist)
+        if improved != artist:
+            print('REPLACING', artist, 'WITH', improved)
+            self.cursor.execute('select distinct artist from songs')
+            artists = list(self.cursor)
+            artists = {i: re.sub('[][._/(:;\)-]', ' ', i.upper()) for i, in artists if i}
+            query = re.sub('[][._/(:;\)-]', ' ', artist.upper())
+            for i, j in artists.items():
+                if j == query:
+                    self.cursor.execute('update or ignore songs set artist=? where artist=?',
+                                        (improved, i))
+                    self.cursor.execute('delete from songs where artist=?', (i,))
+        return improved
+
     def add_tracks_for_artist(self, artist, count=20):
+        artist = self.correct_artist(artist)
         self.cursor.execute('select title from songs where artist=?', (artist,))
         known_tracks = set([i for i, in self.cursor])
         pprint(known_tracks)
@@ -314,7 +330,7 @@ class Database:
                                 (artist, song[0], song[1], song[2], 'NOFILE' +
                                 ''.join(random.choice(string.hexdigits) for x in range(16))))
         self.sql_connection.commit()
-        # pprint(suggestions)
+
 
 if __name__ == '__main__':
     database = Database('/home/dani/yamp')
@@ -328,7 +344,7 @@ if __name__ == '__main__':
 ##########################################
 
     # database.improve_metadata()
-    database.pretty_print()
+    # database.pretty_print()
     # database.add_tracks_for_artist('Pink Floyd')
-    database.add_tracks_for_artist('Сплин')
+    database.add_tracks_for_artist('спЛин')
     database.pretty_print()
