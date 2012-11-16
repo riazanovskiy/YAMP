@@ -57,14 +57,15 @@ class Database:
         self.cursor.execute('select track, artist, album, title, filename from songs')
         moved = []
         for track, artist, album, title, old_filename in self.cursor:
-            folder_name = os.path.join(self.path, valid_filename(artist),
-                                       valid_filename(album))
-            filename = os.path.join(folder_name,
-                valid_filename('{track:0=2} {title}.mp3'.format(track=track,
-                                                                title=title)))
-            if old_filename != filename:
-                verify_dir(folder_name)
-                moved.append((shutil.copy(old_filename, filename), old_filename))
+            if not old_filename.startswith('NOFILE') and os.path.exists(old_filename):
+                folder_name = os.path.join(self.path, valid_filename(artist),
+                                           valid_filename(album))
+                filename = os.path.join(folder_name,
+                    valid_filename('{track:0=2} {title}.mp3'.format(track=track,
+                                                                    title=title)))
+                if old_filename != filename:
+                    verify_dir(folder_name)
+                    moved.append((shutil.copy(old_filename, filename), old_filename))
 
         self.cursor.executemany('update songs set filename=? where filename=?',
                                 moved)
@@ -147,7 +148,6 @@ class Database:
         for i in case_mapping:
             if (len(case_mapping[i]) > 1 or case_mapping[i][0].isupper()
                 or case_mapping[i][0].islower()):
-                print('Lookup for', i)
                 try:
                     cases[i] = self.online.generic_search(what, i)
                     print(cases[i])
@@ -161,16 +161,12 @@ class Database:
 
         for old, new in data.items():
             if old != new:
+                print('REPLACING', old, 'WITH', new)
                 self.cursor.execute('update or ignore songs set {}=? where {}=?'.format(field, field),
                                     (new, old))
                 self.cursor.execute('delete from songs where {}=?'.format(field), (old,))
 
         self.sql_connection.commit()
-
-    def print_artists(self):
-        self.cursor.execute('select distinct artist from songs')
-        for name, in self.cursor:
-            print(name)
 
     def remove_extensions_from_tracks(self):
         self.cursor.execute('select distinct title from songs')
@@ -198,9 +194,7 @@ class Database:
     def remove_common_in_dir(self):
         self.cursor.execute('select filename from songs')
         filenames = [os.path.normpath(os.path.split(i)[0]) for i, in self.cursor]
-        print(len(filenames))
         filenames = set(filenames)
-        print(len(filenames))
         for directory in filenames:
             self.cursor.execute("select title from songs where filename like ?",
                                  (directory + '%',))
@@ -300,17 +294,13 @@ class Database:
         self.sql_connection.commit()
 
     def fill_album(self, artist, album):
-        print('ok0')
         artist = self.correct_artist(artist)
-        print('ok1')
         fetched_tracks = self.online.get_track_list(artist, album)
-        print('ok2')
         for i in range(len(fetched_tracks)):
             if len(fetched_tracks[i]) < 2:
                 fetched_tracks[i] = (fetched_tracks[i][0], 0)
         self.cursor.execute('select track, title from songs where artist=? and album=?',
                             (artist, album))
-        print('ok3')
         known_tracks = sorted(self.cursor)
         for i in range(len(fetched_tracks)):
             for idx, song in known_tracks:
@@ -328,7 +318,6 @@ class Database:
                                     (fetched_tracks[i][1], i + 1, artist, album, fetched_tracks[i][0],
                                      'NOFILE' + ''.join(random.choice(string.hexdigits) for x in range(16))))
         self.sql_connection.commit()
-        print('ok10')
 
     def get_artists_list(self):
         self.cursor.execute('select distinct artist from songs')

@@ -133,17 +133,14 @@ class OnlineData:
 
     def get_track_list(self, artist, album):
         ##### LAST.FM
-        print('ok10')
         search = self.lastfm.search_for_album(album)
         found = None
-        print('ok11')
         page = search.get_next_page()
         while page and not found:
             for i in page:
                 if normalcase(i.artist.name) == normalcase(artist):
                     found = i
                     break
-        print('ok13')
         if found:
             tracks_lastfm = [(i.title,) for i in found.get_tracks()]
             if tracks_lastfm:
