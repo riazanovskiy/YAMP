@@ -102,10 +102,21 @@ class Database:
             tag.track, tag.artist, tag.album, tag.title = track, artist, album, title
             tag.write()
 
-    def pretty_print(self, artist=None):
-        self.cursor.execute('select artist, album, track, title from songs')
-        for (artist, album, track, title) in sorted(self.cursor):
-            print('{} -- {} -- #{} {}'.format(artist, album, track, title))
+    def pretty_print(self, artist=None, album=None):
+        if artist:
+            print(artist)
+            self.cursor.execute('select distinct album from songs where artist=?', (artist,))
+            for i, in self.cursor:
+                print('\t', i)
+        elif album:
+            print(album, 'by', self.get_artist_of_album(album))
+            self.cursor.execute('select track, title from songs where album=?', (album,))
+            for track, title in sorted(self.cursor):
+                print('#' + str(track), title)
+        else:
+            self.cursor.execute('select artist, album, track, title from songs')
+            for (artist, album, track, title) in sorted(self.cursor):
+                print('{} -- {} -- #{} {}'.format(artist, album, track, title))
 
     def print_tags(self):
         self.cursor.execute('select filename from songs where has_file=1')

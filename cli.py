@@ -22,6 +22,26 @@ class YampShell(cmd.Cmd):
     def artists(self):
         return self._albums or database.get_artists_list()
 
+    def _complete(self, line, begidx):
+        pref = line[5:]
+        while pref and pref[0] == ' ':
+            pref = pref[1:]
+            begidx -= 1
+
+        if pref:
+            if pref[0] == '#':
+                if begidx == 5:
+                    return ['#' + i for i in self.albums() if i.startswith(pref[1:])]
+                else:
+                    return [i[begidx - 6:] for i in self.albums() if i.startswith(pref[1:])]
+            elif pref[0] == '@':
+                if begidx == 5:
+                    return ['@' + i for i in self.artists() if i.startswith(pref[1:])]
+                else:
+                    return [i[begidx:] for i in self.artists() if i.startswith(pref[1:])]
+        return ([i[begidx - 5:] for i in self.albums() if i.startswith(pref)] +
+                [i[begidx - 5:] for i in self.artists() if i.startswith(pref)])
+
 ############# import ######################
 
     def do_import(self, args):
@@ -51,32 +71,50 @@ class YampShell(cmd.Cmd):
 
     def do_show(self, args):
         args = args.strip()
-        if args == 'albums':
-            print('\n'.join(self.albums()))
-        elif args == 'artists':
-            print('\n'.join(self.artists()))
-        elif args == 'all':
+        if not args:
             database.pretty_print()
+        elif args == '@':
+            print('\n'.join(self.artists()))
+        elif args == '#':
+            print('\n'.join(self.albums()))
+        elif args[0] == '@':
+            database.pretty_print(artist=args[1:])
+        elif args[0] == '#':
+            database.pretty_print(album=args[1:])
+        elif args in self.albums():
+            database.pretty_print(album=args)
+        elif args in self.artists():
+            database.pretty_print(artist=args)
 
     def help_show(self):
-        print('show artists|albums|all')
-        print('show artist artistname')
-        print('show album albumname')
-        print('show tracks artist|album')
+        print('show')
+        print('show @artist')
+        print('show #album')
         print('Shows different parts of library.')
 
     def complete_show(self, text, line, begidx, endidx):
-        completion = ['artists', 'albums', 'all']
-        return [i for i in completion if i.startswith(text)] + [None]
+        return self._complete(line, begidx)
 
 ############# more ######################
 
     def do_more(self, args):
         args = args.strip()
 
-        if args and args[0] == '@' or args in self.albums():
-            if args[0] == '@':
-                args = args[1:]
+        if not args:
+            return
+        do_artist = bool(args[0] == '@' or args in self.artists())
+        do_album = bool(args[0] == '#' or args in self.albums())
+
+        if args[0] in '@#':
+            args = args[1:]
+
+        if do_album == do_artist:
+            do_album = False
+            do_artist = True
+
+        assert (do_artist != do_album)
+
+        if do_album:
             artist = database.get_artist_of_album(args)
             print('Fetching more songs from album', args, 'by', artist)
             database.fill_album(artist, args)
@@ -86,23 +124,14 @@ class YampShell(cmd.Cmd):
 
     def help_more(self):
         print('more artist|album')
-        print('more @album')
-        print('This will add more songs of to library. Use @ to specify album.')
+        print('more #album')
+        print('more @artist')
+        print('This will add more songs of to library. Use # to specify album. Use @ to specify artist.')
 
     def complete_more(self, text, line, begidx, endidx):
-        pref = line[5:]
-        while pref and pref[0] == ' ':
-            pref = pref[1:]
-            begidx -= 1
+        return self._complete(line, begidx)
 
-        if pref and pref[0] == '@':
-            if begidx == 5:
-                return ['@' + i for i in self.albums() if i.startswith(pref[1:])]
-            else:
-                return [i[begidx - 6:] for i in self.albums() if i.startswith(pref[1:])]
-        else:
-            return ([i[begidx - 5:] for i in self.albums() if i.startswith(pref)] +
-                    [i[begidx - 5:] for i in self.artists() if i.startswith(pref)])
+############# EOF ######################
 
     def do_EOF(self, args):
         print()
@@ -119,7 +148,7 @@ if __name__ == '__main__':
         verify_dir(path)
         database = yamp.Database(path)
         readline.set_completer_delims(' \t\n;')
-        YampShell().cmdloop()
+        YampShell().cmdloop('')
     except Exception as exc:
         print(exc)
         print()
