@@ -131,47 +131,66 @@ class OnlineData:
 
         return output
 
-    def get_track_list(self, artist, album):
-        ##### LAST.FM
-        search = self.lastfm.search_for_album(album)
+    def get_track_list(self, artist, album, min_count=0, known_tracks=[]):
+        # print('Fetching for', album, 'by', artist)
         found = None
-        page = search.get_next_page()
-        while page and not found:
-            for i in page:
-                if normalcase(i.artist.name) == normalcase(artist):
-                    found = i
-                    break
-        if found:
-            tracks_lastfm = [(i.title,) for i in found.get_tracks()]
-            if tracks_lastfm:
-                return tracks_lastfm
+
         ##### MUSICBRAINZ
-        found = None
+        # print('brainz')
         search = brainz.search_releases(album, artist=artist)['release-list']
         for i in search:
             if (normalcase(i['artist-credit-phrase']) == normalcase(artist) and
                 normalcase(i['title']) == normalcase(album)):
-                found = i['id']
-                break
-        if found:
-            data = brainz.get_release_by_id(found, includes='recordings')['release']['medium-list'][0]['track-list']
-            tracks_brainz = [(i['position'], i['recording']['title']) for i in data]
-            tracks_brainz = [(i[1],) for i in sorted(tracks_brainz)]
-            if tracks_brainz:
-                return tracks_brainz
+                data = brainz.get_release_by_id(i['id'], includes='recordings')['release']['medium-list'][0]['track-list']
+                tracks_brainz = [(i['position'], i['recording']['title']) for i in data]
+                if len(tracks_brainz) >= min_count:
+                    tracks_brainz = [(i[1],) for i in sorted(tracks_brainz)]
+                    normalized = [normalcase(track) for track, in tracks_brainz]
+                    for title in known_tracks:
+                        if title not in normalized:
+                            # print('Omitting', i['title'], 'because', title, 'is not found there')
+                            break
+                    else:
+                        return tracks_brainz
+        ##### LAST.FM
+        # print('lastfm')
+        search = self.lastfm.search_for_album(album)
+        page = search.get_next_page()
+        count = 0
+        while page and count < 5:
+            for i in page:
+                if normalcase(i.artist.name) == normalcase(artist):
+                    tracks_lastfm = [(i.title,) for i in i.get_tracks()]
+                    if len(tracks_lastfm) >= min_count:
+                        normalized = [normalcase(i) for i, in tracks_lastfm]
+                        for title in known_tracks:
+                            if title not in normalized:
+                                # print('Omitting because', title, 'not found')
+                                break
+                        else:
+                            return tracks_lastfm
+                count += 1
+                if count > 5:
+                    break
+            page = search.get_next_page()
 
-        found = None
         ##### GROOVESHARK
+        # print('grooveshark')
         search = grooveshark.singleton.getResultsFromSearch(artist, 'Artists')['result']
-        for i in search:
-            if normalcase(i['AlbumName']) == normalcase(album):
-                found = i['AlbumID']
-                break
-        if found:
-            data = grooveshark.singleton.albumGetAllSongs(found)
-            tracks_grooveshark = [(i['TrackNum'], improve_encoding(i['Name']), i['SongID']) for i in data]
-            tracks_grooveshark = [i[1:] for i in sorted(tracks_grooveshark)]
-            return tracks_grooveshark
+        for result in search:
+            if normalcase(result['AlbumName']) == normalcase(album):
+                found = result['AlbumID']
+                data = grooveshark.singleton.albumGetAllSongs(found)
+                tracks_grooveshark = [(i['TrackNum'], improve_encoding(i['Name']), i['SongID']) for i in data]
+                if len(tracks_grooveshark) >= min_count:
+                    tracks_grooveshark = [i[1:] for i in sorted(tracks_grooveshark)]
+                    normalized = [normalcase(i) for i, j in tracks_grooveshark]
+                    for title in known_tracks:
+                        if title not in normalized:
+                            # print('Omitting', result['AlbumName'], 'because', title, 'is not found there')
+                            break
+                    else:
+                        return tracks_grooveshark
         return []
 
     def artist_of_album(self, album):
