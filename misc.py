@@ -12,6 +12,10 @@ languages = ['en_US', 'de_DE', 'ru_RU']  # FIXME: add french
 enchant_dictionaries = [enchant.Dict(lang) for lang in languages]
 
 
+def strip_unprintable(data):
+    return ''.join([i for i in data if ord(i) > 31])
+
+
 def measure_spelling(words, strict=True):
     _words = re.sub('[][._/(:;\)-]', ' ', words).split()
     spelling = 0.0
