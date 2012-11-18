@@ -14,8 +14,11 @@ from tags import open_tag
 from misc import normalcase, improve_encoding, levenshtein, strip_unprintable
 
 
+def diff(a, b):
+    return levenshtein(normalcase(a), normalcase(b)) / min(len(a), len(b))
+
+
 class OnlineData:
-    '''This class provides access to online music datebases, currently Musicbrainz and Last.fm'''
     def __init__(self):
         self.lastfm = pylast.LastFMNetwork('e494d3c2d1e99307336886c9e1f18af2',
                                            '989f1acfe251e590981d485ad9a82bd1')
@@ -48,29 +51,40 @@ class OnlineData:
 
         modified = re.sub('\(.+\)', '', query)
         modified = re.sub('\[.+\]', '', modified)
+        print('query', 'modified')
+        print(query, modified)
 
         if query:
-            try:
-                result = lastfm_methods[what](query).get_next_page()
-                if result:
-                    return result[0].get_name(properly_capitalized=True)
-            except:
-                pass
-            try:
-                result = lastfm_methods[what](modified).get_next_page()
-                if result:
-                    return result[0].get_name(properly_capitalized=True)
-            except:
-                pass
             try:
                 result = mb_methods[what](query)
                 if result:
                     result = result[mb_results[what][0]]
                     if result:
-                        if levenshtein(result[0][mb_results[what][1]], query) / len(query) < 0.5:
-                            return result[0][mb_results[what][1]]
+                        result = result[0][mb_results[what][1]]
+                        if diff(result, query) < 0.5:
+                            return result
                         else:
                             raise Exception()
+            except:
+                pass
+            try:
+                result = lastfm_methods[what](query).get_next_page()
+                if result:
+                    result = result[0].get_name(properly_capitalized=True)
+                    if diff(result, query) < 0.5:
+                        return result
+                    else:
+                        raise Exception()
+            except:
+                pass
+            try:
+                result = lastfm_methods[what](modified).get_next_page()
+                if result:
+                    result = result[0].get_name(properly_capitalized=True)
+                    if diff(result, modified) < 0.5:
+                        return result
+                    else:
+                        raise Exception()
             except:
                 pass
             try:
@@ -78,7 +92,11 @@ class OnlineData:
                 if result:
                     result = result[mb_results[what][0]]
                     if result:
-                        return result[0][mb_results[what][1]]
+                        result = result[0][mb_results[what][1]]
+                        if diff(result, modified) < 0.5:
+                            return result
+                        else:
+                            raise Exception()
             except:
                 pass
 
@@ -128,7 +146,10 @@ class OnlineData:
             songs = [i.item for i in results[0].get_top_tracks()]
             for i in songs:
                 try:
-                    output.append((i.title, i.get_album().title, '-1', '0'))
+                    output.append((improve_encoding(i.title),
+                                                    improve_encoding(i.get_album().title),
+                                                    '-1',
+                                                    '0'))
                 except:
                     pass
         results = grooveshark.singleton.getResultsFromSearch(artist, 'Artists')['result']
@@ -139,7 +160,7 @@ class OnlineData:
             if artist_name != artist:
                 print('Query:', artist, '; grooveshark data:', artist_name)
             songs = grooveshark.singleton.artistGetAllSongsEx(artist_id)
-            output += [(i['Name'], i['AlbumName'], i['TrackNum'], i['SongID']) for i in songs]
+            output += [(improve_encoding(i['Name']), improve_encoding(i['AlbumName']), i['TrackNum'], i['SongID']) for i in songs]
 
         # results = brainz.search_artists(artist)['artist-list']
         # if results:
@@ -170,7 +191,7 @@ class OnlineData:
                 if count > 15:
                     print('No more!!!!!!!!1')
                     break
-                print(count)
+                # print(count)
                 data = []
                 for i in brainz.get_release_by_id(i['id'], includes='recordings')['release']['medium-list']:
                     data += i['track-list']
@@ -180,12 +201,12 @@ class OnlineData:
                     normalized = [normalcase(track) for track, in tracks_brainz]
                     for title in known_tracks:
                         if title not in normalized:
-                            print('Omitting', i['title'], 'because', title, 'is not found there')
+                            # print('Omitting because', title, 'is not found there')
                             break
                     else:
                         return tracks_brainz
-                else:
-                    print('Omitting', i['title'], 'because', len(tracks_brainz), ' < ', min_count)
+                # else:
+                    # print('Omitting', i['title'], 'because', len(tracks_brainz), ' < ', min_count)
         ##### LAST.FM
         # print('lastfm')
         search = self.lastfm.search_for_album(album)
@@ -199,7 +220,7 @@ class OnlineData:
                         normalized = [normalcase(i) for i, in tracks_lastfm]
                         for title in known_tracks:
                             if title not in normalized:
-                                print('Omitting because', title, 'not found')
+                                # print('Omitting because', title, 'not found')
                                 break
                         else:
                             return tracks_lastfm
@@ -224,7 +245,7 @@ class OnlineData:
                     normalized = [normalcase(i) for i, j in tracks_grooveshark]
                     for title in known_tracks:
                         if title not in normalized:
-                            print('Omitting', result['AlbumName'], 'because', title, 'is not found there')
+                            # print('Omitting', result['AlbumName'], 'because', title, 'is not found there')
                             break
                     else:
                         return tracks_grooveshark

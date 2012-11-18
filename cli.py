@@ -45,11 +45,15 @@ class YampShell(cmd.Cmd):
 ############# import ######################
 
     def do_import(self, args):
-        folders = [j for j in (os.path.abspath(i) for i in args.split()) if os.path.isdir(j)]
-        if not folders:
+        args = os.path.abspath(args.strip())
+        if not os.path.isdir(args):
             print('Nothing to import.')
-        for i in folders:
-            database.import_folder(i)
+        database.import_folder(args)
+        database.track_numbers()
+        database.generic_correction('artist')
+        database.generic_correction('album')
+        database.generic_correction('track')
+
 
     def help_import(self):
         print('import /directory/name ...')
@@ -120,7 +124,7 @@ class YampShell(cmd.Cmd):
             database.fill_album(artist, args)
         else:
             print('Fetching more songs by', args)
-            database.add_tracks_for_artist(args)
+            database.fetch_tracks_for_artist(args)
 
     def help_more(self):
         print('more artist|album')
