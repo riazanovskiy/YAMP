@@ -2,16 +2,13 @@
 import os
 import shutil
 import sqlite3
-import difflib
 import re
 import random
 import string
-from functools import lru_cache
 from collections import defaultdict
 from pprint import pprint
 
 import mp3utils
-import colorama
 
 import onlinedata
 from log import logger
@@ -19,7 +16,7 @@ from onlinedata import OnlineData
 from tags import open_tag
 import misc
 from misc import filesize, is_all_ascii, levenshtein, normalcase, improve_encoding
-from errors import TransliterationAttempt, NotFoundOnline
+from errors import NotFoundOnline
 
 
 def is_music_file(filename):
@@ -125,12 +122,13 @@ class Database:
         artist = data[0][1]
         data = {title: title for title, artist in data}
         new_album = album
-        if misc.measure_spelling(album) < 0.1:
+        if misc.measure_spelling(album) < 0.3:
             new_album = self.transliterate('album', album, artist)
             print('REPLACING', album, 'WITH', new_album)
+
         for old in data:
-            if misc.measure_spelling(old) < 0.1:
-                data[old] = self.transliterate('track', old, artist)
+            data[old] = self.transliterate('track', old, artist)
+
         for old, new in data.items():
             if old != new:
                 print('REPLACING', old, 'WITH', new)
@@ -390,9 +388,6 @@ class Database:
         same = defaultdict(lambda: [])
         for track, title in tracks:
             same[track].append(title)
-        # for i, j in same.items():
-        #     if len(j) > 1:
-        #         print(j)
 
     def reduce_albums(self):
         artists = self.sql.execute('select distinct artist from songs').fetchall()
@@ -464,8 +459,8 @@ if __name__ == '__main__':
     database = Database('/home/dani/yamp')
     # database.import_folder('/home/dani/Music')
 
-    database.import_folder('/home/dani/tmp')
-    database.import_folder('/home/dani/tmp_')
+    # database.import_folder('/home/dani/tmp')
+    # database.import_folder('/home/dani/tmp_')
     # database.import_folder('/home/dani/Fleur')
     database.remove_extensions_from_tracks()
     print('\x1b[41mTrack numbers\x1b[0m')
