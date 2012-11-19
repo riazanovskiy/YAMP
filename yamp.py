@@ -17,8 +17,9 @@ import onlinedata
 from log import logger
 from onlinedata import OnlineData
 from tags import open_tag
+import misc
 from misc import filesize, is_all_ascii, levenshtein, normalcase, improve_encoding
-from errors import DoublecheckEncodingException, NotFoundOnline
+from errors import TransliterationAttempt, NotFoundOnline
 
 
 def is_music_file(filename):
@@ -63,26 +64,26 @@ class Database:
                                 moved)
         self.sql.commit()
 
+    def import_file(self, file):
+        tags = open_tag(file)
+        track, artist = tags.track, tags.artist.strip()
+        album, title = tags.album.strip(), tags.title.strip()
+        # FIXME
+        duration = 0
+        try:
+            bitrate = mp3utils.mp3info(file)['BITRATE']
+        except:
+            bitrate = 0
+        self.sql.execute('insert or ignore into songs (track, artist, album,'
+                            ' title, bitrate, duration, filename, has_file)'
+                            'values (?, ?, ?, ?, ?, ?, ?, 1)', (track,
+                            artist, album, title, bitrate, duration, file))
+
     def import_folder(self, folder):
         count = self.sql.execute('select count (*) from songs').fetchone()[0]
         for curr, dirs, files in os.walk(folder):
             for file in (os.path.join(curr, i) for i in files if is_music_file(os.path.join(curr, i))):
-                tags = open_tag(file)
-
-                track, artist = tags.track, tags.artist.strip()
-                album, title = tags.album.strip(), tags.title.strip()
-                # FIXME
-                duration = 0
-                try:
-                    bitrate = mp3utils.mp3info(file)['BITRATE']
-                except:
-                    bitrate = 0
-
-                self.sql.execute('insert or ignore into songs (track, artist, album,'
-                                    ' title, bitrate, duration, filename, has_file)'
-                                    'values (?, ?, ?, ?, ?, ?, ?, 1)', (track,
-                                    artist, album, title, bitrate, duration,
-                                    file))
+                self.import_file(file)
         print(self.sql.execute('select count (*) from songs').fetchone()[0] - count,
               'songs imported')
         self.sql.commit()
@@ -118,6 +119,51 @@ class Database:
         for i, in cursor:
             print('\n'.join((map(repr, open_tag(i).frames()))) + '\n')
 
+    def transliterate_album(self, album):
+        data = self.sql.execute('select title, artist from songs where album=?',
+                                (album,)).fetchall()
+        artist = data[0][1]
+        data = {title: title for title, artist in data}
+        new_album = album
+        if misc.measure_spelling(album) < 0.1:
+            new_album = self.transliterate('album', album, artist)
+            print('REPLACING', album, 'WITH', new_album)
+        for old in data:
+            if misc.measure_spelling(old) < 0.1:
+                data[old] = self.transliterate('track', old, artist)
+        for old, new in data.items():
+            if old != new:
+                print('REPLACING', old, 'WITH', new)
+                self.sql.execute('update or ignore songs set title=?, album=? where title=?',
+                                 (new, new_album, old))
+                self.sql.execute('delete from songs where title=?', (old,))
+        self.sql.commit()
+
+    def transliterate(self, what, orig, artist):
+        request = misc.get_translit(orig)
+        try:
+            return self.online.generic_search(what, request, artist=artist)
+        except NotFoundOnline:
+            words = re.sub('[][._/(:;\)-]', ' ', request).split()
+            good_words = []
+            dictionary = misc.dictionaries[-1]
+
+            for i, word in enumerate(words):
+                if dictionary.check(word):
+                    good_words.append(word)
+                elif dictionary.suggest(word):
+                    words[i] = dictionary.suggest(word)[0]
+
+            suggest1 = ' '.join(words)
+            suggest2 = ' '.join(good_words)
+            try:
+                return self.online.generic_search(what, suggest1, artist=artist)
+            except NotFoundOnline:
+                try:
+                    return self.online.generic_search(what, suggest2, artist=artist)
+                except NotFoundOnline:
+                    return request
+
     def generic_correction(self, what):
         assert (what in ['album', 'artist', 'track'])
         field = what if what != 'track' else 'title'
@@ -136,11 +182,11 @@ class Database:
             if (len(case_mapping[i]) > 1 or case_mapping[i][0].isupper()
                 or case_mapping[i][0].islower()):
                 artist = ''
-                if field == 'title' or field == 'album':
+                if field != 'artist':
                     artist = self.sql.execute('select artist from songs where {}=?'.format(field),
                                               (case_mapping[i][0],)).fetchone()
-                    if artist:
-                        artist = artist[0]
+                if artist:
+                    artist = artist[0]
                 try:
                     corrected_case[i] = self.online.generic_search(what, i, artist=artist)
                 except NotFoundOnline:
@@ -183,6 +229,7 @@ class Database:
                 print('REPLACING', i, 'WITH', updated)
                 self.sql.execute('update songs set title=? where title=?',
                                     (updated, i))
+        self.sql.commit()
 
     def correct_artist(self, artist):
         improved = self.online.generic_search('artist', artist)
@@ -195,6 +242,7 @@ class Database:
                 self.sql.execute('update or ignore songs set artist=? where artist=?',
                                     (improved, i))
                 self.sql.execute('delete from songs where artist=?', (i,))
+        self.sql.commit()
         return improved
 
     def correct_album(self, album):
@@ -209,19 +257,22 @@ class Database:
                     self.sql.execute('update or ignore songs set album=? where album=?',
                                         (improved, i))
                     self.sql.execute('delete from songs where album=?', (i,))
+        self.sql.commit()
         return improved
 
     def fetch_tracks_for_artist(self, artist, count=20):
+        inserted = self.sql.execute('select count (*) from songs').fetchone()[0]
         count = min(count, 100)
-        artist = self.correct_artist(artist)
+        try:
+            artist = self.correct_artist(artist)
+        except NotFoundOnline:
+            print('0 songs added')
+            return
         cursor = self.sql.execute('select title from songs where artist=?', (artist,))
         known_tracks = {i for i, in cursor}
         suggestions = self.online.get_tracks_for_artist(artist)
-        # pprint(suggestions)
         suggestions = [i for i in suggestions if i[0] not in known_tracks]
-        # pprint(suggestions)
         suggestions = [i for i in suggestions if not any(j in i[0] for j in known_tracks)]
-        pprint(suggestions)
 
         for song in suggestions[:count]:
             self.sql.execute('insert or ignore into songs'
@@ -230,6 +281,9 @@ class Database:
                                 (artist, song[0], song[1], song[2], 'NOFILE' +
                                 ''.join(random.choice(string.hexdigits) for x in range(16))))
         self.sql.commit()
+        print(self.sql.execute('select count (*) from songs').fetchone()[0] - inserted,
+              'songs added')
+
 
     def merge_artists(self):
         artists = self.sql.execute('select distinct artist from songs').fetchall()
@@ -254,10 +308,10 @@ class Database:
         self.sql.commit()
 
     def fill_album(self, artist, album):
-        print(artist, album)
-        artist = self.correct_artist(artist)
-        print(artist, album)
-
+        try:
+            artist = self.correct_artist(artist)
+        except NotFoundOnline:
+            return
         known_tracks = self.sql.execute('select track, title from songs where artist=? and album=?',
                                         (artist, album)).fetchall()
         if known_tracks:
@@ -276,31 +330,34 @@ class Database:
                 return
             fetched_tracks = self.online.get_track_list(artist, album)
 
-        for i in range(len(fetched_tracks)):
-            if len(fetched_tracks[i]) < 2:
-                fetched_tracks[i] = (fetched_tracks[i][0], 0)
-        # pprint(fetched_tracks)
-        for i in range(len(fetched_tracks)):
-            # print(song)
+        for i, track in enumerate(fetched_tracks):
+            if len(track) < 2:
+                fetched_tracks[i] = (track[0], 0)
+        for i, track in enumerate(fetched_tracks):
             for idx, song, norm in known_tracks:
-                if norm == normalcase(fetched_tracks[i][0]):
-                    if i + 1 != idx or song != fetched_tracks[i][0]:
+                if norm == normalcase(track[0]):
+                    if i + 1 != idx or song != track[0]:
                         if i + 1 != idx:
                             print('Song', song, ': ', idx, ' -> ', i + 1)
-                        if song != fetched_tracks[i][0]:
-                            print('REPLACING', song, 'WITH', fetched_tracks[i][0])
-                        self.sql.execute('update songs set track=?,  grooveshark_id=?, title=?, '
-                                            ' artist_as_online=1, album_as_online=1, title_as_online=1 '
-                                            ' where title=? and artist=? and album=?',
-                                            (i + 1, fetched_tracks[i][1], fetched_tracks[i][0],
-                                             song, artist, album))
+                        if song != track[0]:
+                            print('REPLACING', song, 'WITH', track[0])
+                        try:
+                            self.sql.execute('update songs set track=?,  grooveshark_id=?, title=?, '
+                                                ' artist_as_online=1, album_as_online=1, title_as_online=1 '
+                                                ' where title=? and artist=? and album=?',
+                                                (i + 1, track[1], track[0],
+                                                 song, artist, album))
+                        except sqlite3.IntegrityError:
+                            self.sql.execute('delete from songs where track=? and '
+                                             ' title=? and artist=? and album=?',
+                                             (idx, song, artist, album))
                     break
             else:
                 try:
                     self.sql.execute('insert into songs (grooveshark_id, track, artist, album, '
                                                           ' title, filename, has_file) '
                                         'values (?, ?, ?, ?, ?, ?, 0) ',
-                                        (fetched_tracks[i][1], i + 1, artist, album, fetched_tracks[i][0],
+                                        (track[1], i + 1, artist, album, track[0],
                                          'NOFILE' + ''.join(random.choice(string.hexdigits) for x in range(16))))
                 except sqlite3.IntegrityError:
                     print('Can not insert: artist ', artist, 'album ', album, 'track', fetched_tracks[i][0])
@@ -320,13 +377,12 @@ class Database:
 
     def get_artist_of_album(self, album):
         artist = self.sql.execute('select artist from songs where album=?', (album,)).fetchone()
-        if artists:
-            return artists[0]
+        if artist:
+            return artist[0]
         else:
             return self.online.artist_of_album(album)
 
     def reduce_album(self, artist, album):
-        # print('Processing', album, 'by', artist)
         self.fill_album(artist, album)
         tracks = self.sql.execute('select track, title from songs where artist=? and album=?',
                                   (artist, album)).fetchall()
@@ -384,6 +440,7 @@ class Database:
                                                 (title, num, artist, album, old_title))
                             self.sql.execute('delete from songs where artist=? and album=? and title=?',
                                                 (artist, album, old_title))
+        self.sql.commit()
 
     def track_numbers_from_filename(self):
         cursor = self.sql.execute('select filename from songs where track=0')
@@ -396,6 +453,7 @@ class Database:
             print('Song', filename, ':  0 ->', track)
             self.sql.execute('update songs set track=? where filename=?',
                                 (track, filename))
+        self.sql.commit()
 
     def track_numbers(self):
         self.track_numbers_from_filename()
@@ -406,23 +464,23 @@ if __name__ == '__main__':
     database = Database('/home/dani/yamp')
     # database.import_folder('/home/dani/Music')
 
-    # database.import_folder('/home/dani/tmp')
-    # database.import_folder('/home/dani/tmp_')
-    # database.remove_extensions_from_tracks()
-    # print('\x1b[41mTrack numbers\x1b[0m')
-    # database.track_numbers()
-    # print('\x1b[41mArtist correction\x1b[0m')
-    # database.generic_correction('artist')
-    # print('\x1b[41mAlbum correction\x1b[0m')
-    # database.generic_correction('album')
-    # print('\x1b[41mTrack correction\x1b[0m')
-    # database.generic_correction('track')
+    database.import_folder('/home/dani/tmp')
+    database.import_folder('/home/dani/tmp_')
+    # database.import_folder('/home/dani/Fleur')
+    database.remove_extensions_from_tracks()
+    print('\x1b[41mTrack numbers\x1b[0m')
+    database.track_numbers()
+    print('\x1b[41mArtist correction\x1b[0m')
+    database.generic_correction('artist')
+    print('\x1b[41mAlbum correction\x1b[0m')
+    database.generic_correction('album')
+    print('\x1b[41mTrack correction\x1b[0m')
+    database.generic_correction('track')
 
 ##########################################
 
     # database.pretty_print()
     # database.fill_album('Несчастный случай', 'Тоннель в конце света')
-    database.correct_album('Князь тишины (VinylRip)')
     # database.fill_album('Наутилус Помпилиус', 'Князь тишины (VinylRip)')
     # database.fill_album('Pink Floyd', 'The Dark Side of the Moon')
     # database.fetch_tracks_for_artist('Pink Floyd', count=30)

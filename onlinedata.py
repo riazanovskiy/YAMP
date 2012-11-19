@@ -15,7 +15,9 @@ from misc import normalcase, improve_encoding, levenshtein, strip_unprintable
 
 
 def diff(a, b):
-    return levenshtein(normalcase(a), normalcase(b)) / min(len(a), len(b))
+    a = normalcase(a)
+    b = normalcase(b)
+    return levenshtein(a, b) / min(len(a), len(b))
 
 
 class OnlineData:
@@ -51,18 +53,21 @@ class OnlineData:
 
         modified = re.sub('\(.+\)', '', query)
         modified = re.sub('\[.+\]', '', modified)
-        print('query', 'modified')
-        print(query, modified)
-
         if query:
             try:
                 result = mb_methods[what](query)
                 if result:
+                    if 'alias-list' in result:
+                        if query in result['alias-list']:
+                            return result[mb_results[what][0]]
                     result = result[mb_results[what][0]]
                     if result:
-                        result = result[0][mb_results[what][1]]
-                        if diff(result, query) < 0.5:
-                            return result
+                        answer = result[0][mb_results[what][1]]
+                        if diff(answer, query) < 0.5:
+                            if (artist and what != 'artist' and
+                                diff(artist, result[0]['artist-credit-phrase']) > 0.5):
+                                    raise Exception()
+                            return answer
                         else:
                             raise Exception()
             except:
@@ -70,9 +75,12 @@ class OnlineData:
             try:
                 result = lastfm_methods[what](query).get_next_page()
                 if result:
-                    result = result[0].get_name(properly_capitalized=True)
-                    if diff(result, query) < 0.5:
-                        return result
+                    answer = result[0].get_name(properly_capitalized=True)
+                    if diff(answer, query) < 0.5:
+                        if (artist and what != 'artist' and
+                            diff(result[0].get_artist().name, query) > 0.5):
+                            raise Exception()
+                        return answer
                     else:
                         raise Exception()
             except:
@@ -80,9 +88,12 @@ class OnlineData:
             try:
                 result = lastfm_methods[what](modified).get_next_page()
                 if result:
-                    result = result[0].get_name(properly_capitalized=True)
-                    if diff(result, modified) < 0.5:
-                        return result
+                    answer = result[0].get_name(properly_capitalized=True)
+                    if diff(answer, modified) < 0.5:
+                        if artist and what != 'artist':
+                            if diff(result[0].get_artist().name, query) > 0.5:
+                                raise Exception()
+                        return answer
                     else:
                         raise Exception()
             except:
@@ -90,11 +101,17 @@ class OnlineData:
             try:
                 result = mb_methods[what](modified)
                 if result:
+                    if 'alias-list' in result:
+                        if modified in result['alias-list']:
+                            return result[mb_results[what][0]]
                     result = result[mb_results[what][0]]
                     if result:
-                        result = result[0][mb_results[what][1]]
-                        if diff(result, modified) < 0.5:
-                            return result
+                        answer = result[0][mb_results[what][1]]
+                        if diff(answer, modified) < 0.5:
+                            if (artist and what != 'artist' and
+                                diff(artist, result[0]['artist-credit-phrase']) > 0.5):
+                                    raise Exception()
+                            return answer
                         else:
                             raise Exception()
             except:
@@ -139,41 +156,33 @@ class OnlineData:
         output = []
 
         results = self.lastfm.search_for_artist(artist).get_next_page()
-
         if results:
-            if results[0].name != artist:
+            if normalcase(results[0].name) == normalcase(artist):
+                songs = [i.item for i in results[0].get_top_tracks()]
+                for i in songs:
+                    try:
+                        output.append((improve_encoding(i.title),
+                                                        improve_encoding(i.get_album().title),
+                                                        '-1',
+                                                        '0'))
+                    except:
+                        pass
+            else:
                 print('Query:', artist, '; last.fm data:', results[0].name)
-            songs = [i.item for i in results[0].get_top_tracks()]
-            for i in songs:
-                try:
-                    output.append((improve_encoding(i.title),
-                                                    improve_encoding(i.get_album().title),
-                                                    '-1',
-                                                    '0'))
-                except:
-                    pass
+
         results = grooveshark.singleton.getResultsFromSearch(artist, 'Artists')['result']
 
         if results:
             artist_id = int(results[0]['ArtistID'])
             artist_name = results[0]['ArtistName']
-            if artist_name != artist:
+            if normalcase(artist_name) == normalcase(artist):
+                songs = grooveshark.singleton.artistGetAllSongsEx(artist_id)
+                output += [(improve_encoding(i['Name']),
+                            improve_encoding(i['AlbumName']),
+                            i['TrackNum'],
+                            i['SongID']) for i in songs]
+            else:
                 print('Query:', artist, '; grooveshark data:', artist_name)
-            songs = grooveshark.singleton.artistGetAllSongsEx(artist_id)
-            output += [(improve_encoding(i['Name']), improve_encoding(i['AlbumName']), i['TrackNum'], i['SongID']) for i in songs]
-
-        # results = brainz.search_artists(artist)['artist-list']
-        # if results:
-        #     artist_id = results[0]['id']
-        #     artist_name = results[0]['name']
-        #     if artist_name != artist:
-        #         print('Query:', artist, '; musicbrainz data:', artist_name)
-        #     songs = brainz.get_artist_by_id(artist_id, includes=['recordings'])
-        #     songs = songs['artist']['recording-list']
-        #     for i in songs:
-        #         search = brainz.get_recording_by_id(i['id'], includes=['releases'])
-        #         output.append((i['title'], i[search['recording']['release-list'][0]['title']],
-        #                        '-1', '0'))
 
         return output
 
@@ -188,10 +197,8 @@ class OnlineData:
             if (normalcase(i['artist-credit-phrase']) == normalcase(artist) and
                 normalcase(i['title']) == normalcase(album)):
                 count += 1
-                if count > 15:
-                    print('No more!!!!!!!!1')
+                if count > 20:
                     break
-                # print(count)
                 data = []
                 for i in brainz.get_release_by_id(i['id'], includes='recordings')['release']['medium-list']:
                     data += i['track-list']

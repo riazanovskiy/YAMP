@@ -9,6 +9,13 @@ import yamp
 from misc import verify_dir
 
 
+def get_yn_promt(promt):
+    ans = input(promt)
+    while ans not in ['y', 'n', '']:
+        ans = input(promt)
+    return ans == 'y'
+
+
 class YampShell(cmd.Cmd):
     prompt = '$ ' if os.name == 'nt' else '> '
     file = None
@@ -17,43 +24,53 @@ class YampShell(cmd.Cmd):
     _albums = []
 
     def albums(self):
-        return self._albums or database.get_albums_list()
+        self._albums = self._albums or list(database.get_albums_list())
+        return self._albums
 
     def artists(self):
-        return self._albums or database.get_artists_list()
+        self._artists = self._artists or list(database.get_artists_list())
+        return self._artists
 
     def _complete(self, line, begidx):
-        pref = line[5:]
+        command = len(line.split()[0]) + 1
+        pref = line[command:]
         while pref and pref[0] == ' ':
             pref = pref[1:]
             begidx -= 1
 
         if pref:
             if pref[0] == '#':
-                if begidx == 5:
+                if begidx == command:
                     return ['#' + i for i in self.albums() if i.startswith(pref[1:])]
                 else:
-                    return [i[begidx - 6:] for i in self.albums() if i.startswith(pref[1:])]
+                    return [i[begidx - command - 1:] for i in self.albums() if i.startswith(pref[1:])]
             elif pref[0] == '@':
-                if begidx == 5:
+                if begidx == command:
                     return ['@' + i for i in self.artists() if i.startswith(pref[1:])]
                 else:
                     return [i[begidx:] for i in self.artists() if i.startswith(pref[1:])]
-        return ([i[begidx - 5:] for i in self.albums() if i.startswith(pref)] +
-                [i[begidx - 5:] for i in self.artists() if i.startswith(pref)])
+        return ([i[begidx - command:] for i in self.albums() if i.startswith(pref)] +
+                [i[begidx - command:] for i in self.artists() if i.startswith(pref)])
 
-############# import ######################
+############# import ########################################################################################
 
     def do_import(self, args):
         args = os.path.abspath(args.strip())
-        if not os.path.isdir(args):
+        if os.path.exists(args):
+            if os.path.isdir(args):
+                database.import_folder(args)
+            elif os.path.isfile(args):
+                database.import_file(args)
+                database.sql.commit()
+            database.remove_extensions_from_tracks()
+            database.track_numbers()
+            database.generic_correction('artist')
+            database.generic_correction('album')
+            database.generic_correction('track')
+            self._albums = []
+            self._artists = []
+        else:
             print('Nothing to import.')
-        database.import_folder(args)
-        database.track_numbers()
-        database.generic_correction('artist')
-        database.generic_correction('album')
-        database.generic_correction('track')
-
 
     def help_import(self):
         print('import /directory/name ...')
@@ -62,16 +79,17 @@ class YampShell(cmd.Cmd):
     def complete_import(self, text, line, begidx, endidx):
         return (glob.glob(text + '*') + [None])
 
-############# move ######################
+############# move ########################################################################################
 
     def do_move(self, args):
-        print('Moving all music files. Be patient, this can take some time.')
-        database.move_files()
+        if input('Are you sure? ') == 'y':
+            print('Moving all music files. Be patient, this can take some time.')
+            database.move_files()
 
     def help_move(self):
         print('Moves all the files to corresponding folders.')
 
-############# show ######################
+############# show ########################################################################################
 
     def do_show(self, args):
         args = args.strip()
@@ -79,16 +97,22 @@ class YampShell(cmd.Cmd):
             database.pretty_print()
         elif args == '@':
             print('\n'.join(self.artists()))
+            return
         elif args == '#':
             print('\n'.join(self.albums()))
+            return
         elif args[0] == '@':
             database.pretty_print(artist=args[1:])
+            return
         elif args[0] == '#':
             database.pretty_print(album=args[1:])
+            return
         elif args in self.albums():
             database.pretty_print(album=args)
+            return
         elif args in self.artists():
             database.pretty_print(artist=args)
+            return
 
     def help_show(self):
         print('show')
@@ -99,7 +123,7 @@ class YampShell(cmd.Cmd):
     def complete_show(self, text, line, begidx, endidx):
         return self._complete(line, begidx)
 
-############# more ######################
+############# more ########################################################################################
 
     def do_more(self, args):
         args = args.strip()
@@ -125,6 +149,8 @@ class YampShell(cmd.Cmd):
         else:
             print('Fetching more songs by', args)
             database.fetch_tracks_for_artist(args)
+        self._artists = []
+        self._albums = []
 
     def help_more(self):
         print('more artist|album')
@@ -135,7 +161,35 @@ class YampShell(cmd.Cmd):
     def complete_more(self, text, line, begidx, endidx):
         return self._complete(line, begidx)
 
-############# EOF ######################
+############# translit ########################################################################################
+    def help_translit(self):
+        print('translit artist|album')
+        print('translit #album')
+        print('translit @artist')
+        print('Заменит транслит в названиях')
+
+    def complete_translit(self, text, line, begidx, endidx):
+        return self._complete(line, begidx)
+
+    def do_translit(self, args):
+        args = args.strip()
+        if args:
+            self._artists = []
+            self._albums = []
+            if args[0] == '@':
+                database.transliterate('artist', args[1:], artist='')
+                return
+            elif args[0] == '#':
+                database.transliterate_album(args[1:])
+                return
+            elif args in self.albums():
+                database.transliterate_album(args)
+                return
+            elif args in self.artists():
+                database.transliterate('artist', args, artist='')
+                return
+
+############# EOF ########################################################################################
 
     def do_EOF(self, args):
         print()
@@ -143,17 +197,12 @@ class YampShell(cmd.Cmd):
         return True
 
 if __name__ == '__main__':
-    accept = False
-    try:
-        # while (not accept):
-            # path = os.path.abspath(input('Enter main path to music library: '))
-            # accept = (input('Path is ' + path + ' (yes/no) ') == 'yes')
-        path = '/home/dani/yamp'
-        verify_dir(path)
-        database = yamp.Database(path)
-        readline.set_completer_delims(' \t\n;')
-        YampShell().cmdloop('')
-    except Exception as exc:
-        print(exc)
-        print()
-        print('Exiting')
+    # accept = False
+    # while (not accept):
+        # path = os.path.abspath(input('Enter main path to music library: '))
+        # accept = (input('Path is ' + path + ' (yes/no) ') == 'yes')
+    path = '/home/dani/yamp'
+    verify_dir(path)
+    database = yamp.Database(path)
+    readline.set_completer_delims(' \t\n;')
+    YampShell().cmdloop('')
