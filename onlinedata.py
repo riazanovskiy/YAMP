@@ -212,6 +212,7 @@ class OnlineData:
                     album_tracks = [normalcase(i.name) for i in album.tracks()]
                     if any(known not in album_tracks for known in tracks):
                         logger.info('Omitting because track not found')
+                        logger.debug('fetched ' + repr(album_tracks) + '\n known' + repr(known))
                         break
                 if diff(album.name, title) < 0.5:
                     return album

@@ -200,9 +200,12 @@ class YampShell(cmd.Cmd):
 if __name__ == '__main__':
     accept = False
     path = 'C:\yamp'
-    # while (not accept):
-    #     path = os.path.abspath(input('Enter main path to music library: '))
-    #     accept = (input('Path is ' + path + ' (yes/no) ') == 'yes')
+    while not accept:
+        path = os.path.abspath(input('Enter main path to music library: '))
+        prompt = input('Path is ' + path + ' (yes/no) ')
+        if prompt == 'no':
+            path = os.path.abspath(input('Enter main path to music library: '))
+        accept = (prompt == 'yes')
     verify_dir(path)
     database = yamp.Database(path)
     logger.info('Started')
