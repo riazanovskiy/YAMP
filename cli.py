@@ -1,5 +1,5 @@
-import warnings
-warnings.simplefilter('ignore')
+# import warnings
+# warnings.simplefilter('ignore')
 import cmd
 import os
 import glob
@@ -7,6 +7,7 @@ import readline
 
 import yamp
 from misc import verify_dir
+from log import logger
 
 
 def get_yn_promt(promt):
@@ -96,10 +97,10 @@ class YampShell(cmd.Cmd):
         if not args:
             database.pretty_print()
         elif args == '@':
-            print('\n'.join(self.artists()))
+            print('\n'.join(sorted(self.artists())))
             return
         elif args == '#':
-            print('\n'.join(self.albums()))
+            print('\n'.join(sorted(self.albums())))
             return
         elif args[0] == '@':
             database.pretty_print(artist=args[1:])
@@ -197,12 +198,13 @@ class YampShell(cmd.Cmd):
         return True
 
 if __name__ == '__main__':
-    # accept = False
+    accept = False
+    path = 'C:\yamp'
     # while (not accept):
-        # path = os.path.abspath(input('Enter main path to music library: '))
-        # accept = (input('Path is ' + path + ' (yes/no) ') == 'yes')
-    path = '/home/dani/yamp'
+    #     path = os.path.abspath(input('Enter main path to music library: '))
+    #     accept = (input('Path is ' + path + ' (yes/no) ') == 'yes')
     verify_dir(path)
     database = yamp.Database(path)
+    logger.info('Started')
     readline.set_completer_delims(' \t\n;')
     YampShell().cmdloop('')

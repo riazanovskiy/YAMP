@@ -3,7 +3,7 @@ songslist = [
 'Deep Purple Highway star',
 'Nirvana',
 'Pink Floyd Wish You Were Here',
-'ДДТ Мать Людмила',
+'ДДТ В последнюю осень',
 'Щербаков Вишневое варенье',
 'Щербаков Райцентр',
 'Щербаков Завтра, вчера, всегда',

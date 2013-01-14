@@ -2338,7 +2338,7 @@ class Track(_BaseObject, _Taggable):
         self.title = title
 
     def __repr__(self):
-        return "pylast.Track(%s, %s, %s)" %(repr(self.artist.name), repr(self.title), repr(self.network))
+        return "pylast.Track(%s, %s, %s)" % (repr(self.artist.name), repr(self.title), repr(self.network))
 
     @_string_output
     def __str__(self):

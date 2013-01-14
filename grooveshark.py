@@ -13,7 +13,7 @@ import uuid
 import time
 
 from log import logger
-from errors import SongNotFound
+from errors import NotFoundOnline
 
 from misc import make_request, ungzip
 
@@ -26,16 +26,18 @@ class Grooveshark():
     referer2 = 'http://grooveshark.com/'
     clientRevision = '20120830'
     clientRevision2 = '20120830.12'
-    timeout = 1200
-    cookie = None
-    header = {'country': {'CC1': '0',
-                          'CC2': '0',
-                          'CC3': '0',
-                          'CC4': '0',
-                           'ID': '1'},
-              'privacy': 0,
-              'session': None,
-              'uuid': str(uuid.uuid4()).upper()}
+
+    def __init__(self):
+        self.timeout = 1200
+        self.cookie = None
+        self.header = {'country': {'CC1': '0',
+                                   'CC2': '0',
+                                   'CC3': '0',
+                                   'CC4': '0',
+                                   'ID': '1'},
+                       'privacy': 0,
+                       'session': None,
+                       'uuid': str(uuid.uuid4()).upper()}
 
     def make_grooveshark_token(self, method, secret):
         rnd = (''.join(random.choice(string.hexdigits) for x in range(6))).lower()
@@ -43,7 +45,7 @@ class Grooveshark():
 
     def make_grooveshark_query(self, method, **kwargs):
         if not self.cookie:
-            raise Exception('You should get cookie first.')
+            raise Exception('You should get a cookie first.')
 
         self.header['session'] = self.cookie[10:]
 
@@ -106,7 +108,6 @@ class Grooveshark():
         data = io.BytesIO(data)
 
         decoded = json.JSONDecoder().decode(ungzip(data).decode('utf-8'))
-        logger.debug(decoded)
         self.token = decoded['result']
         self.last_time = time.time()
 
@@ -223,7 +224,6 @@ class Grooveshark():
 
     def get_cookie(self):
         connection = http.client.HTTPConnection('grooveshark.com')
-
         response = make_request(connection,
                             'First connection failed.',
                             'HEAD',
@@ -250,11 +250,11 @@ def download(songname):
         try:
             song = decoded['result'][0]
         except:
-            raise SongNotFound()
+            raise NotFoundOnline()
     try:
         songid = song['SongID']
     except:
-        raise SongNotFound()
+        raise NotFoundOnline()
 
     decoded = singleton.getStreamKeysFromSongIDs(songid)
 

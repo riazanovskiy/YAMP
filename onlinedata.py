@@ -1,125 +1,255 @@
-import random
-import re
-from functools import lru_cache
-from pprint import pprint
-
 import pylast
-import musicbrainzngs as brainz
-
 import grooveshark
+import musicbrainzngs as brainz
 import vpleer
-
-from errors import SongNotFound, NotFoundOnline
+from misc import diff, strip_brackets, improve_encoding, normalcase, strip_unprintable
+from errors import NotFoundOnline
 from tags import open_tag
-from misc import normalcase, improve_encoding, levenshtein, strip_unprintable
+import random
+from log import logger
+
+LASTFM = 0
+GROOVESHARK = 1
+BRAINZ = 2
 
 
-def diff(a, b):
-    a = normalcase(a)
-    b = normalcase(b)
-    return levenshtein(a, b) / min(len(a), len(b))
+class LastSong:
+    def __init__(self, song):
+        self.artist = song.artist.name
+        self.name = improve_encoding(song.title)
+        album = song.get_album()
+        self.album = None
+        if album:
+            self.album = improve_encoding(album.title)
+        self.track = 0
+        logger.debug('in LastSong: ' + str(self.name) + ' ' + str(self.album))
+
+
+class LastAlbum:
+    def __init__(self, album):
+        self._link = album
+        self.name = album.get_title()
+        self.artist = album.get_artist().get_name()
+        self._tracks = None
+
+    def tracks(self):
+        self._tracks = self._tracks or [LastSong(i) for i in self._link.get_tracks()]
+        return self._tracks
+
+
+class LastArtist:
+    def __init__(self, artist):
+        self._link = artist
+        self.name = artist.get_name(properly_capitalized=True)
+        self._tracks = None
+
+    def tracks(self):
+        logger.debug('in LastArtist.tracks()')
+        self._tracks = self._tracks or [LastSong(i.item) for i in self._link.get_top_tracks()]
+        return self._tracks
+
+
+class SharkSong:
+    def __init__(self, song):
+        self.artist = song['ArtistName']
+        if 'SongName' in song:
+            self.name = improve_encoding(song['SongName'])
+        else:
+            self.name = improve_encoding(song['Name'])
+        self.album = improve_encoding(song['AlbumName'])
+        self.id = song['SongID']
+        self.track = int(song['TrackNum'] or '0')
+
+    def __lt__(self, other):
+        return self.track < other.track
+
+
+class SharkAlbum:
+    def __init__(self, album):
+        self.name = album['AlbumName']
+        self.artist = album['ArtistName']
+        self.id = album['AlbumID']
+        self._tracks = None
+
+    def tracks(self):
+        if not self._tracks:
+            tracks = sorted([SharkSong(i) for i in grooveshark.singleton.albumGetAllSongs(self.id)])
+            i = 1
+            self._tracks = [tracks[0]]
+            while i < len(tracks):
+                if self._tracks[-1].track != tracks[i].track:
+                    self._tracks.append(tracks[i])
+                i += 1
+
+        return self._tracks
+
+
+class SharkArtist:
+    def __init__(self, artist):
+        self.id = artist['ArtistID']
+        self.name = artist['Name']
+        self._tracks = None
+
+    def tracks(self):
+        self._tracks = self._tracks or [SharkSong(i) for i in grooveshark.singleton.artistGetAllSongsEx(self.id)]
+        return self._tracks
+
+
+class BrainzSong:
+    def __init__(self, song):
+        self.artist = song['artist-credit-phrase'] if 'artist-credit-phrase' in song else None
+        self.name = song['title'] if 'title' in song else None
+        self.id = song['id'] if 'id' in song else None
+        self.track = song['position'] if 'position' is song else 0
+        if 'recording' in song:
+            if 'title' in song['recording']:
+                self.name = song['recording']['title']
+            if 'id' in song['recording']:
+                self.id = song['recording']['id']
+
+    def __lt__(self, other):
+        return self.track < other.track
+
+
+class BrainzAlbum:
+    def __init__(self, album):
+        self.name = album['title']
+        self.artist = album['artist-credit-phrase']
+        self.id = album['id']
+        self._tracks = None
+
+    def tracks(self):
+        if not self._tracks:
+            data = brainz.get_release_by_id(self.id, includes='recordings')['release']
+            assert(self.name == data['title'])
+            tracks = []
+            for i in data['medium-list']:
+                tracks += i['track-list']
+            self._tracks = [BrainzSong(i) for i in tracks]
+            for track in self._tracks:
+                track.artist = self.artist
+                track.album = self.name
+        return self._tracks
+
+
+class BrainzArtist:
+    def __init__(self, artist):
+        self.id = artist['id']
+        self.name = artist['name']
+        self._tracks = None
+
+    def tracks(self):
+        raise NotImplementedError
 
 
 class OnlineData:
     def __init__(self):
         self.lastfm = pylast.LastFMNetwork('e494d3c2d1e99307336886c9e1f18af2',
                                            '989f1acfe251e590981d485ad9a82bd1')
-        brainz.set_useragent('HYA', '1.2', 'http://vk.com')
         grooveshark.setup_connection()
+        self.shark = grooveshark.singleton
+        brainz.set_useragent('HAT', '1.7.1', 'http://vk.com')
 
-    @lru_cache()
-    def generic_search(self, what, query, artist=''):
-        '''
-           Returns propper name for album, artist or track queried.
-           Arguments:
-           what -- type of query. Must be 'album', 'artist' or 'track'.
-           query -- text queried.
+    def _search_artist(self, provider, known):
+        logger.info('In _search_artist(' + str(provider) + ', ' + known + ') ')
+        RESULTS_TO_REVIEW = 1
+        search = [lambda: self.lastfm.search_for_artist(known).get_next_page(),
+                  lambda: self.shark.getResultsFromSearch(known, 'Artists')['result'],
+                  lambda: brainz.search_artists(known)['artist-list']][provider]
+        Artist = [LastArtist, SharkArtist, BrainzArtist][provider]
+        output = None
+        try:
+            output = search()
+        except Exception as exc:
+            logger.info('Exception in search ' + str(exc))
+            return None
+        if output:
+            logger.info('got output')
+            for i, result in enumerate(output):
+                if i == RESULTS_TO_REVIEW:
+                    break
+                logger.info('Got artist result')
+                artist = Artist(result)
+                if (diff(artist.name, known) < 0.5 or (provider == 2
+                                                       and 'alias-list' in result
+                                                       and known in result['alias-list'])):
+                    return artist
+                else:
+                    logger.info(artist.name + ' differs from ' + known)
+        else:
+            logger.info('no output')
+        return None
 
-        '''
-        query = strip_unprintable(query)
-        artist = strip_unprintable(artist)
-        assert (what in ['album', 'artist', 'track'])
-        mb_methods = {'album': lambda x: brainz.search_releases(x, artist=artist),
-                      'artist': brainz.search_artists,
-                      'track': lambda x: brainz.search_recordings(x, artist=artist)}
+    def artist(self, provider, known):
+        return (self._search_artist(provider, known)
+                or self._search_artist(provider, strip_brackets(known)))
 
-        mb_results = {'album': ('release-list', 'title'),
-                      'artist': ('artist-list', 'name'),
-                      'track': ('recording-list', 'title')}
+    def _search_album(self, provider, title, artist='', tracks=[], min_tracks=0):
+        logger.info('In _search_album(' + str(provider) + ', ' + title + ', ' + artist + ')')
+        RESULTS_TO_REVIEW = 10
+        search = [lambda: self.lastfm.search_for_album(title).get_next_page(),
+                  lambda: self.shark.getResultsFromSearch(title, 'Albums')['result'],
+                  lambda: brainz.search_releases(title, artist=artist)['release-list']][provider]
+        Album = [LastAlbum, SharkAlbum, BrainzAlbum][provider]
+        output = None
+        try:
+            output = search()
+        except:
+            return None
+        if output:
+            for i, result in enumerate(output):
+                if i == RESULTS_TO_REVIEW:
+                    break
+                logger.info('Album: attempt #' + str(i))
+                album = Album(result)
+                if artist and diff(album.artist, artist) > 0.5:
+                    logger.info('Omitting because ' + str(album.artist) + ' != ' + str(artist))
+                    continue
+                if min_tracks and len(album.tracks()) < min_tracks:
+                    logger.info('Omitting because of min_tracks')
+                    continue
+                if tracks:
+                    album_tracks = [normalcase(i.name) for i in album.tracks()]
+                    if any(known not in album_tracks for known in tracks):
+                        logger.info('Omitting because track not found')
+                        break
+                if diff(album.name, title) < 0.5:
+                    return album
+                else:
+                    logger.info('Omitting because of title')
 
-        lastfm_methods = {'album': self.lastfm.search_for_album,
-                          'artist': self.lastfm.search_for_artist,
-                          'track': lambda x: self.lastfm.search_for_track(artist, x)}
+        return None
 
-        modified = re.sub('\(.+\)', '', query)
-        modified = re.sub('\[.+\]', '', modified)
-        if query:
-            try:
-                result = mb_methods[what](query)
-                if result:
-                    if 'alias-list' in result:
-                        if query in result['alias-list']:
-                            return result[mb_results[what][0]]
-                    result = result[mb_results[what][0]]
-                    if result:
-                        answer = result[0][mb_results[what][1]]
-                        if diff(answer, query) < 0.5:
-                            if (artist and what != 'artist' and
-                                diff(artist, result[0]['artist-credit-phrase']) > 0.5):
-                                    raise Exception()
-                            return answer
-                        else:
-                            raise Exception()
-            except:
-                pass
-            try:
-                result = lastfm_methods[what](query).get_next_page()
-                if result:
-                    answer = result[0].get_name(properly_capitalized=True)
-                    if diff(answer, query) < 0.5:
-                        if (artist and what != 'artist' and
-                            diff(result[0].get_artist().name, query) > 0.5):
-                            raise Exception()
-                        return answer
-                    else:
-                        raise Exception()
-            except:
-                pass
-            try:
-                result = lastfm_methods[what](modified).get_next_page()
-                if result:
-                    answer = result[0].get_name(properly_capitalized=True)
-                    if diff(answer, modified) < 0.5:
-                        if artist and what != 'artist':
-                            if diff(result[0].get_artist().name, query) > 0.5:
-                                raise Exception()
-                        return answer
-                    else:
-                        raise Exception()
-            except:
-                pass
-            try:
-                result = mb_methods[what](modified)
-                if result:
-                    if 'alias-list' in result:
-                        if modified in result['alias-list']:
-                            return result[mb_results[what][0]]
-                    result = result[mb_results[what][0]]
-                    if result:
-                        answer = result[0][mb_results[what][1]]
-                        if diff(answer, modified) < 0.5:
-                            if (artist and what != 'artist' and
-                                diff(artist, result[0]['artist-credit-phrase']) > 0.5):
-                                    raise Exception()
-                            return answer
-                        else:
-                            raise Exception()
-            except:
-                pass
+    def album(self, provider, title, artist='', tracks=[], min_tracks=0):
+        return (self._search_album(provider, title, artist, tracks, min_tracks)
+               or self._search_album(provider, strip_brackets(title),
+                                     strip_brackets(artist),
+                                     tracks, min_tracks))
 
-        raise NotFoundOnline()
+    def song(self, provider, title, artist=''):
+        RESULTS_TO_REVIEW = 2
+        search = [lambda: self.lastfm.search_for_track(artist, title).get_next_page(),
+                  lambda: self.shark.getResultsFromSearch(title, 'Songs')['result'],
+                  lambda: brainz.search_recordings(title, artist=artist)['recording-list']][provider]
+        Song = [LastSong, SharkSong, BrainzSong][provider]
+        output = None
+        try:
+            output = search()
+        except:
+            return None
+        if output:
+            for i, result in enumerate(output):
+                if i == RESULTS_TO_REVIEW:
+                    break
+                song = Song(result)
+                if artist and diff(song.artist, artist) > 0.5:
+                    continue
+                if diff(song.name, title) < 0.5:
+                    return song
 
-    def download_as(self, title, artist='', album=''):
+        return None
+
+    def download_as(self, title, artist='', album='', track=0):
         '''Downloads song and set its tags to given title, artist, album'''
         title = strip_unprintable(title.strip())
         artist = strip_unprintable(artist.strip())
@@ -129,12 +259,12 @@ class OnlineData:
         for download in ways:
             try:
                 data = download(artist + ' ' + title)
-            except SongNotFound:
+            except NotFoundOnline:
                 pass
             else:
                 break
         else:
-            raise SongNotFound()
+            raise NotFoundOnline()
         filename = artist + '-' + title + '__' + str(random.randint(100500))
         file = open(filename, 'w')
         file.write(data)
@@ -142,7 +272,7 @@ class OnlineData:
         artist = artist or tag.artist.strip()
         title = title or tag.title.strip()
         album = album or tag.album.strip()
-        track = tag.track
+        track = track or tag.track
         tag._frames.clear()
         tag.title = title
         tag.artist = artist
@@ -151,121 +281,17 @@ class OnlineData:
         tag.write()
         return filename
 
-    def get_tracks_for_artist(self, artist):
-        artist = strip_unprintable(artist)
-        output = []
-
-        results = self.lastfm.search_for_artist(artist).get_next_page()
-        if results:
-            if normalcase(results[0].name) == normalcase(artist):
-                songs = [i.item for i in results[0].get_top_tracks()]
-                for i in songs:
-                    try:
-                        output.append((improve_encoding(i.title),
-                                                        improve_encoding(i.get_album().title),
-                                                        '-1',
-                                                        '0'))
-                    except:
-                        pass
-            else:
-                print('Query:', artist, '; last.fm data:', results[0].name)
-
-        results = grooveshark.singleton.getResultsFromSearch(artist, 'Artists')['result']
-
-        if results:
-            artist_id = int(results[0]['ArtistID'])
-            artist_name = results[0]['ArtistName']
-            if normalcase(artist_name) == normalcase(artist):
-                songs = grooveshark.singleton.artistGetAllSongsEx(artist_id)
-                output += [(improve_encoding(i['Name']),
-                            improve_encoding(i['AlbumName']),
-                            i['TrackNum'],
-                            i['SongID']) for i in songs]
-            else:
-                print('Query:', artist, '; grooveshark data:', artist_name)
-
-        return output
-
-    def get_track_list(self, artist, album, min_count=0, known_tracks=[]):
-        artist = strip_unprintable(artist)
-        album = strip_unprintable(album)
-        ##### MUSICBRAINZ
-        # print('brainz')
-        search = brainz.search_releases(album, artist=artist)['release-list']
-        count = 0
-        for i in search:
-            if (normalcase(i['artist-credit-phrase']) == normalcase(artist) and
-                normalcase(i['title']) == normalcase(album)):
-                count += 1
-                if count > 20:
-                    break
-                data = []
-                for i in brainz.get_release_by_id(i['id'], includes='recordings')['release']['medium-list']:
-                    data += i['track-list']
-                tracks_brainz = [(i['position'], i['recording']['title']) for i in data]
-                if len(tracks_brainz) >= min_count:
-                    tracks_brainz = [(i[1],) for i in sorted(tracks_brainz)]
-                    normalized = [normalcase(track) for track, in tracks_brainz]
-                    for title in known_tracks:
-                        if title not in normalized:
-                            # print('Omitting because', title, 'is not found there')
-                            break
-                    else:
-                        return tracks_brainz
-                # else:
-                    # print('Omitting', i['title'], 'because', len(tracks_brainz), ' < ', min_count)
-        ##### LAST.FM
-        # print('lastfm')
-        search = self.lastfm.search_for_album(album)
-        page = search.get_next_page()
-        count = 0
-        while page and count < 5:
-            for i in page:
-                if normalcase(i.artist.name) == normalcase(artist):
-                    tracks_lastfm = [(i.title,) for i in i.get_tracks()]
-                    if len(tracks_lastfm) >= min_count:
-                        normalized = [normalcase(i) for i, in tracks_lastfm]
-                        for title in known_tracks:
-                            if title not in normalized:
-                                # print('Omitting because', title, 'not found')
-                                break
-                        else:
-                            return tracks_lastfm
-                count += 1
-                if count > 5:
-                    break
-            page = search.get_next_page()
-
-        if known_tracks:
-            return []
-
-        ##### GROOVESHARK
-        # print('grooveshark')
-        search = grooveshark.singleton.getResultsFromSearch(artist, 'Artists')['result']
-        for result in search:
-            if normalcase(result['AlbumName']) == normalcase(album):
-                found = result['AlbumID']
-                data = grooveshark.singleton.albumGetAllSongs(found)
-                tracks_grooveshark = [(i['TrackNum'] or '', improve_encoding(i['Name']) or '', i['SongID']) for i in data]
-                if len(tracks_grooveshark) >= min_count:
-                    tracks_grooveshark = [i[1:] for i in sorted(tracks_grooveshark)]
-                    normalized = [normalcase(i) for i, j in tracks_grooveshark]
-                    for title in known_tracks:
-                        if title not in normalized:
-                            # print('Omitting', result['AlbumName'], 'because', title, 'is not found there')
-                            break
-                    else:
-                        return tracks_grooveshark
-        return []
-
-    def artist_of_album(self, album):
-        album = strip_unprintable(album)
-        search = self.lastfm.search_for_album(album)
-        page = search.get_next_page()
-
-        for i in page:
-            if normalcase(i.title) == normalcase(album):
-                return i.artist
-        search = brainz.search_releases(album)['release-list']
-        if search:
-            return search[0]['artist-credit'][0]['artist']['name']
+    def generic(self, what, query, artist=None):
+        result = None
+        if what == 'track':
+            result = (self.song(BRAINZ, query, artist=artist) or
+                      self.song(LASTFM, query, artist=artist))
+        elif what == 'album':
+            result = (self.album(BRAINZ, query, artist=artist) or
+                       self.album(LASTFM, query, artist=artist))
+        elif what == 'artist':
+            result = (self.artist(BRAINZ, query) or self.artist(LASTFM, query))
+        if not result:
+            raise NotFoundOnline
+        else:
+            return result

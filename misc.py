@@ -7,13 +7,17 @@ from functools import lru_cache
 import enchant
 import pytils
 
-languages = ['en_US', 'de_DE', 'fr_FR', 'ru_RU']  # FIXME: add spanish
+languages = ['en_US', 'de_DE', 'fr_FR', 'ru_RU']  # FIXME: add Spanish
 dictionaries = [enchant.Dict(lang) for lang in languages]
 
 
 @lru_cache()
 def strip_unprintable(data):
-    return ''.join([i for i in data if ord(i) > 31])
+    return ''.join([i for i in data if ord(i) > 31]) if data else ''
+
+
+def strip_brackets(data):
+    return re.sub('\[.+\]', '', re.sub('\(.+\)', '', data))
 
 
 def measure_spelling(words):
@@ -76,6 +80,12 @@ def longest_common_substring(data):
     return substr
 
 
+def diff(a, b):
+    a = normalcase(a)
+    b = normalcase(b)
+    return levenshtein(a, b) / min(len(a), len(b))
+
+
 def filesize(file):
     return os.stat(file).st_size
 
@@ -125,4 +135,4 @@ def ungzip(data):
 
 @lru_cache()
 def normalcase(data):
-    return re.sub(' +', ' ', re.sub('[][._/(:;\)-]', ' ', data.upper()))
+    return re.sub(' +', ' ', re.sub('[][._/(:;\)-]', ' ', data.upper())).replace('С', 'C').replace('с', 'c')
