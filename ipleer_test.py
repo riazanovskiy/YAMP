@@ -1,4 +1,3 @@
-print('Started ' + __name__)
 import unittest
 from for_examples import for_examples
 import ipleer
