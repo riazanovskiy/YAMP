@@ -212,7 +212,7 @@ class OnlineData:
                     album_tracks = [normalcase(i.name) for i in album.tracks()]
                     if any(known not in album_tracks for known in tracks):
                         logger.info('Omitting because track not found')
-                        logger.debug('fetched ' + repr(album_tracks) + '\n known' + repr(known))
+                        logger.debug('fetched ' + repr(album_tracks) + '\n known' + repr(tracks))
                         break
                 if diff(album.name, title) < 0.5:
                     return album
@@ -256,8 +256,8 @@ class OnlineData:
         artist = strip_unprintable(artist.strip())
         album = strip_unprintable(album.strip())
         data = None
-        ways = [grooveshark.download, vpleer.download]
-        for download in ways:
+        providers = [grooveshark.download, vpleer.download]
+        for download in providers:
             try:
                 data = download(artist + ' ' + title)
             except NotFoundOnline:
@@ -269,6 +269,7 @@ class OnlineData:
         filename = artist + '-' + title + '__' + str(random.randint(100500))
         file = open(filename, 'w')
         file.write(data)
+        file.close()
         tag = open_tag(filename)
         artist = artist or tag.artist.strip()
         title = title or tag.title.strip()
