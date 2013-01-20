@@ -1,8 +1,9 @@
 import unittest
-from for_examples import for_examples
-import vpleer
-from songslist import songslist
 import sys
+
+import vpleer
+from for_examples import for_examples
+from songslist import songslist
 
 BYTES_TO_READ = 32768
 

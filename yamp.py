@@ -173,7 +173,7 @@ class Database:
         for i in data:
             data[i] = improve_encoding(i)
 
-        case_mapping = defaultdict(lambda: [])
+        case_mapping = defaultdict(list)
         for i in data.values():
             case_mapping[normalcase(i)].append(i)
 
@@ -397,7 +397,7 @@ class Database:
         tracks = self.sql.execute('select track, title from songs where artist=? and album=?',
                                   (artist, album)).fetchall()
         tracks.sort()
-        same = defaultdict(lambda: [])
+        same = defaultdict(list)
         for track, title in tracks:
             same[track].append(title)
 

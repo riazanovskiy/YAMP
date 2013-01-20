@@ -1,8 +1,10 @@
 import unittest
-from for_examples import for_examples
-import grooveshark
-from songslist import songslist
 import sys
+
+import grooveshark
+from for_examples import for_examples
+from songslist import songslist
+
 BYTES_TO_READ = 32768
 
 

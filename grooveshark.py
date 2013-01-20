@@ -21,7 +21,7 @@ from misc import make_request, ungzip
 class Grooveshark():
     salt_htmlshark = 'greenPlants'
     salt_jsqueue = 'tastyTacos'
-    useragent = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.56 Safari/535.11'  # 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1161.0 Safari/537.1'
+    useragent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.56 Safari/535.11'
     referer = 'http://grooveshark.com/JSQueue.swf?20121002.01'
     referer2 = 'http://grooveshark.com/'
     clientRevision = '20120830'
@@ -225,10 +225,10 @@ class Grooveshark():
     def get_cookie(self):
         connection = http.client.HTTPConnection('grooveshark.com')
         response = make_request(connection,
-                            'First connection failed.',
-                            'HEAD',
-                            '',
-                            headers={'User-Agent': self.useragent})
+                                'First connection failed',
+                                'HEAD',
+                                '',
+                                headers={'User-Agent': self.useragent})
 
         self.cookie = response.getheader('set-cookie').split(';')[0]
 
