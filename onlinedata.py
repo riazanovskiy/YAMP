@@ -1,11 +1,14 @@
+import random
+import multiprocessing
+
 import pylast
 import grooveshark
 import musicbrainzngs as brainz
+
 import vpleer
 from misc import diff, strip_brackets, improve_encoding, normalcase, strip_unprintable
 from errors import NotFoundOnline
 from tags import open_tag
-import random
 from log import logger
 
 LASTFM = 0
@@ -185,7 +188,7 @@ class OnlineData:
                 or self._search_artist(provider, strip_brackets(known)))
 
     def _search_album(self, provider, title, artist='', tracks=[], min_tracks=0):
-        logger.info('In _search_album(' + str(provider) + ', ' + title + ', ' + artist + ')')
+        logger.info('In _search_album(' + str(provider) + ', ' + str(title) + ', ' + str(artist) + ')')
         RESULTS_TO_REVIEW = 10
         search = [lambda: self.lastfm.search_for_album(title).get_next_page(),
                   lambda: self.shark.getResultsFromSearch(title, 'Albums')['result'],
@@ -200,7 +203,7 @@ class OnlineData:
             for i, result in enumerate(output):
                 if i == RESULTS_TO_REVIEW:
                     break
-                logger.info('Album: attempt #' + str(i))
+                logger.info('Album: attempt #' + str(i + 1))
                 album = Album(result)
                 if artist and diff(album.artist, artist) > 0.5:
                     logger.info('Omitting because ' + str(album.artist) + ' != ' + str(artist))
@@ -250,13 +253,16 @@ class OnlineData:
 
         return None
 
+    def download_tuple(self, data):
+        return self.download_as(*data)
+
     def download_as(self, title, artist='', album='', track=0):
         '''Downloads song and set its tags to given title, artist, album'''
         title = strip_unprintable(title.strip())
         artist = strip_unprintable(artist.strip())
         album = strip_unprintable(album.strip())
         data = None
-        providers = [grooveshark.download, vpleer.download]
+        providers = [vpleer.download, grooveshark.download]
         for download in providers:
             try:
                 data = download(artist + ' ' + title)
@@ -266,10 +272,9 @@ class OnlineData:
                 break
         else:
             raise NotFoundOnline()
-        filename = artist + '-' + title + '__' + str(random.randint(100500))
-        file = open(filename, 'w')
-        file.write(data)
-        file.close()
+        filename = str(track).zfill(2) + ' - ' + artist + '-' + title + '__' + str(random.randint(100000, 999999)) + '.mp3'
+        with open(filename, 'wb') as file:
+            file.write(data.read())
         tag = open_tag(filename)
         artist = artist or tag.artist.strip()
         title = title or tag.title.strip()
@@ -290,10 +295,15 @@ class OnlineData:
                       self.song(LASTFM, query, artist=artist))
         elif what == 'album':
             result = (self.album(BRAINZ, query, artist=artist) or
-                       self.album(LASTFM, query, artist=artist))
+                      self.album(LASTFM, query, artist=artist))
         elif what == 'artist':
             result = (self.artist(BRAINZ, query) or self.artist(LASTFM, query))
         if not result:
             raise NotFoundOnline
         else:
             return result
+
+    def download_by_list(self, data):
+        '''Downloads given songs in parallel'''
+        with multiprocessing.Pool(processes=max(len(data) // 2, 1)) as pool:
+            return pool.map(self.download_tuple, data)

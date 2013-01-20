@@ -86,6 +86,7 @@ class YampShell(cmd.Cmd):
         if input('Are you sure? ') == 'y':
             print('Moving all music files. Be patient, this can take some time.')
             database.move_files()
+            database.writeout()
 
     def help_move(self):
         print('Moves all the files to corresponding folders.')
@@ -190,12 +191,35 @@ class YampShell(cmd.Cmd):
                 database.transliterate('artist', args, artist='')
                 return
 
+############# fetch ########################################################################################
+    def help_fetch(self):
+        print('fetch [count]')
+        print("This will fetch mp3 file for songs which don't have one.")
+        print('This will fetch up to count files or all of them if count is not specified')
+
+    # def complete_fetch(self, text, line, begidx, endidx):
+        # return self._complete(line, begidx)
+
+    def do_fetch(self, args):
+        args = args.strip()
+        if args:
+            try:
+                count = int(args)
+            except:
+                print('You should specify a number')
+                return
+        else:
+            count = 0
+        database.fetch_data(count)
 ############# EOF ########################################################################################
 
     def do_EOF(self, args):
         print()
         print('Exiting')
         return True
+
+    def emptyline(self):
+        pass
 
 if __name__ == '__main__':
     accept = False
@@ -205,7 +229,7 @@ if __name__ == '__main__':
         prompt = input('Path is ' + path + ' (yes/no) ')
         if prompt == 'no':
             path = os.path.abspath(input('Enter main path to music library: '))
-        accept = (prompt == 'yes')
+        accept = (prompt == 'yes' or prompt == 'y')
     verify_dir(path)
     database = yamp.Database(path)
     logger.info('Started')

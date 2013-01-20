@@ -1,7 +1,8 @@
 import unittest
+import os
 
 import onlinedata as onlinedata
-from misc import normalcase
+from misc import normalcase, filesize
 
 
 class TestOnlineData(unittest.TestCase):
@@ -60,6 +61,18 @@ class TestOnlineData(unittest.TestCase):
         self.assertEqual(normalcase(artist.name), normalcase("Веня Д'ркин"))
         with self.assertRaises(NotImplementedError):
             artist.tracks()
+
+    # def test_multiple_download(self):
+    #     data = [('Поворот', 'Машина времени', 'Империя звезд (сборник)', 1),
+    #             ('Костер', 'Машина времени', 'Империя звезд (сборник)', 2)]
+    #             # ('Синяя птица', 'Машина времени', 'Империя звезд (сборник)', 3),
+    #             # ('Она идет по жизни смеясь', 'Машина времени', 'Империя звезд (сборник)', 4)]
+
+    #     files = self.data.download_by_list(data)
+    #     self.assertEqual(len(files), len(data))
+    #     for file in files:
+    #         self.assertGreater(filesize(file), 1000)
+    #         os.remove(file)
 
 
 if __name__ == '__main__':

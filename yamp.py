@@ -79,9 +79,9 @@ class Database:
         except:
             bitrate = 0
         self.sql.execute('insert or ignore into songs (track, artist, album,'
-                            ' title, bitrate, duration, filename, has_file)'
-                            'values (?, ?, ?, ?, ?, ?, ?, 1)', (track,
-                            artist, album, title, bitrate, duration, file))
+                         ' title, bitrate, duration, filename, has_file)'
+                         'values (?, ?, ?, ?, ?, ?, ?, 1)',
+                         (track, artist, album, title, bitrate, duration, file))
 
     def import_folder(self, folder):
         count = self.sql.execute('select count (*) from songs').fetchone()[0]
@@ -472,6 +472,31 @@ class Database:
     def track_numbers(self):
         self.track_numbers_from_filename()
         self.track_numbers_from_title()
+
+    def fetch_data(self, count=0):
+        songs = list(self.sql.execute("select title, artist, album, track, filename "
+                                 " from songs where filename like 'NOFILE%'"))
+        if count > 0:
+            songs = songs[:count]
+        data = [song[:-1] for song in songs]
+        if len(data):
+            print('Fetching', len(data), 'song' + ('s' if len(data) > 1 else ''))
+        else:
+            print('No songs to fetch')
+            return
+        new_files = self.online.download_by_list(data)
+        print(new_files)
+        print(songs)
+        # assert (len(new_files) == len(songs))
+        for (title, artist, album, track, dummy_filename), new_filename in zip(songs, new_files):
+            print('title, artist, album, track, dummy_filename, new_filename')
+            print(title, artist, album, track, dummy_filename, new_filename)
+            right_filename = self.move_file(new_filename, track, artist, album, title)[0]
+            self.sql.execute('update songs set filename=? where filename=?',
+                             (right_filename, dummy_filename))
+            os.remove(new_filename)
+        self.sql.commit()
+
 
 if __name__ == '__main__':
     random.seed()
