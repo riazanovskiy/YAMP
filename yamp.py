@@ -15,7 +15,8 @@ from log import logger
 from onlinedata import OnlineData
 from tags import open_tag
 import misc
-from misc import filesize, is_all_ascii, levenshtein, normalcase, improve_encoding
+from misc import (filesize, is_all_ascii, levenshtein, normalcase,
+                  improve_encoding, valid_filename, verify_dir)
 from errors import NotFoundOnline
 
 
@@ -43,23 +44,29 @@ class Database:
         self.sql.execute('create unique index if not exists songsindex '
                          'ON songs(artist, title, album, filename)')
 
+    def move_file(self, old_filename, track, artist, album, title):
+        folder_name = os.path.join(self.path, valid_filename(artist), valid_filename(album))
+        filename = os.path.join(folder_name,
+                                valid_filename('{track:0=2} {title}.mp3'.format(track=track,
+                                                                                title=title)))
+        if old_filename != filename:
+            verify_dir(folder_name)
+            return (shutil.copy(old_filename, filename), old_filename)
+
     def move_files(self):
         cursor = self.sql.execute('select track, artist, album, title, filename from songs')
-        moved = []
+        moved_list = []
         for track, artist, album, title, old_filename in cursor:
             if not old_filename.startswith('NOFILE') and os.path.exists(old_filename):
-                folder_name = os.path.join(self.path, valid_filename(artist),
-                                           valid_filename(album))
-                filename = os.path.join(folder_name, valid_filename('{track:0=2} {title}.mp3'.format(track=track,
-                                                                                                     title=title)))
-                if old_filename != filename:
-                    verify_dir(folder_name)
-                    moved.append((shutil.copy(old_filename, filename), old_filename))
+                moved = self.move_file(old_filename, track, artist, album, title)
+                if moved:
+                        moved_list.append(moved)
 
-        print(len(moved), 'files moved.')
-        self.sql.executemany('update songs set filename=? where filename=?',
-                                moved)
-        self.sql.commit()
+        print(len(moved_list), 'files moved.')
+        if moved_list:
+            self.sql.executemany('update songs set filename=? where filename=?',
+                                 moved_list)
+            self.sql.commit()
 
     def import_file(self, file):
         tags = open_tag(file)
