@@ -1,9 +1,20 @@
 # import warnings
 # warnings.simplefilter('ignore')
-import cmd
 import os
+
+if os.name == 'nt':
+    import pyreadline
+    import py_readline as readline
+    import rlcompleter
+    # readline.parse_and_bind("tab: complete")
+    # pyreadline.unicode_helper.pyreadline_codepage = "utf8"
+    # readline.read_history_file()
+else:
+    import readline
+
+import cmd
+import colorama
 import glob
-import readline
 
 import yamp
 from misc import verify_dir
@@ -222,6 +233,7 @@ class YampShell(cmd.Cmd):
         pass
 
 if __name__ == '__main__':
+    colorama.init()
     accept = False
     path = 'C:\yamp'
     while not accept:
@@ -234,4 +246,5 @@ if __name__ == '__main__':
     database = yamp.Database(path)
     logger.info('Started')
     readline.set_completer_delims(' \t\n;')
-    YampShell().cmdloop('')
+    # readline.parse_and_bind("tab: complete")
+    YampShell(completekey='tab').cmdloop('')

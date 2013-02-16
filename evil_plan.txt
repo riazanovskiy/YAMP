@@ -24,14 +24,14 @@ Last.fm интеграция
 Параллельная загрузка
 
 Список сайтов:
-grooveshark.com
-last.fm
-music.yandex.ru
-ipleer.kz
-vplayer.ru
-prostopleer.com
-musicbrainz.org
-tumblr.com
+    grooveshark.com
+    last.fm
+    music.yandex.ru
+    ipleer.kz
+    vplayer.ru
+    prostopleer.com
+    musicbrainz.org
+    tumblr.com
 Распознавание: echoprint, last.fm Fingerprinter
 
 Работа с тегами:
@@ -54,4 +54,3 @@ tumblr.com
     Исключить мусор из названий -- годы, номера, блаблабла
     Исключить общие подстроки названий
     Убрать одинаковые треки из альбомов
-
