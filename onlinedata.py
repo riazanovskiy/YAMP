@@ -256,25 +256,33 @@ class OnlineData:
         return None
 
     def download_tuple(self, data):
-        return self.download_as(*data)
+        try:
+            return self.download_as(*data)
+        except Exception as exc:
+            logger.exception(exc)
+            logger.debug('download of ' + repr(data) + ' failed')
+            raise
 
     def download_as(self, title, artist='', album='', track=0):
         '''Downloads song and set its tags to given title, artist, album'''
+        logger.debug('in download(' + repr((title, artist, album, track)) + ')')
         title = strip_unprintable(title.strip())
         artist = strip_unprintable(artist.strip())
         album = strip_unprintable(album.strip())
         data = None
         providers = [vpleer.download, grooveshark.download]
+        exc = None
         for download in providers:
             try:
                 data = download(artist + ' ' + title)
-            except NotFoundOnline:
+            except:
                 pass
             else:
                 break
         else:
-            raise NotFoundOnline()
-        filename = str(track).zfill(2) + ' - ' + artist + '-' + title + '__' + str(random.randint(100000, 999999)) + '.mp3'
+            return ''
+
+        filename = str(track).zfill(2) + ' - ' + artist + '-' + title + '.mp3'  # + '__' + str(random.randint(100000, 999999))
         with open(filename, 'wb') as file:
             file.write(data.read())
         tag = open_tag(filename)
@@ -307,5 +315,11 @@ class OnlineData:
 
     def download_by_list(self, data):
         '''Downloads given songs in parallel'''
-        with multiprocessing.Pool(processes=max(len(data) // 2, 1)) as pool:
-            return pool.map(self.download_tuple, data)
+        try:
+            return [self.download_tuple(song) for song in data]
+            # with multiprocessing.Pool(processes=max(len(data) // 2, 2)) as pool:
+                # return pool.map(self.download_tuple, data)
+        except urllib.error.URLError as exc:
+            print ('Can not fetch songs')
+            pprint(exc)
+            return []

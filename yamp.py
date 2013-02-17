@@ -239,7 +239,11 @@ class Database:
         self.sql.commit()
 
     def correct_artist(self, artist):
-        # print('in')
+        logger.debug('in correct_artist(%s)' % artist)
+        already = self.sql.execute('select artist_as_online from songs where artist=?',
+                                   (artist,)).fetchone()
+        if already and already[0]:
+            return artist
         improved = self.online.generic('artist', artist).name
         artists = self.sql.execute('select distinct artist from songs').fetchall()
         artists = {i: normalcase(i) for i, in artists if i}
@@ -247,8 +251,8 @@ class Database:
         for i, j in artists.items():
             if i != improved and j == query:
                 print('REPLACING', i, 'WITH', improved)
-                self.sql.execute('update or ignore songs set artist=? where artist=?',
-                                    (improved, i))
+                self.sql.execute('update or ignore songs set artist=?, artist_as_online=1 where artist=?',
+                                 (improved, i))
                 self.sql.execute('delete from songs where artist=?', (i,))
         self.sql.commit()
         return improved
@@ -268,7 +272,7 @@ class Database:
         self.sql.commit()
         return improved
 
-    def fetch_tracks_for_artist(self, artist, count=20):
+    def fetch_tracks_for_artist(self, artist, count=15):
         inserted = self.sql.execute('select count (*) from songs').fetchone()[0]
         count = min(count, 100)
         try:
@@ -320,26 +324,30 @@ class Database:
         self.sql.commit()
 
     def fill_album(self, artist, albumname):
-        try:
-            artist = self.correct_artist(artist)
-        except NotFoundOnline:
-            return
-        known_tracks = self.sql.execute('select track, title from songs where artist=? and album=?',
-                                        (artist, albumname)).fetchall()
-        known_tracks = [(track, title, normalcase(title)) for track, title in known_tracks]
-        album = None
-        if known_tracks:
-            known_tracks.sort()
-            min_tracks = known_tracks[-1][0]
-            tracknames = [i[2] for i in known_tracks]
-            album = (self.online.album(onlinedata.BRAINZ, albumname, artist,
-                                       tracknames, min_tracks)
-                     or self.online.album(onlinedata.LASTFM, albumname, artist,
-                                          tracknames, min_tracks)
-                     or self.online.album(onlinedata.GROOVESHARK, albumname, artist,
-                                          tracknames, min_tracks))
+        logger.debug('fill_album(' + str(artist) + ', ' + str(albumname) + ')')
+        min_tracks = 0
+        tracknames = []
+        known_tracks = []
+        if artist:
+            try:
+                artist = self.correct_artist(artist)
+            except NotFoundOnline:
+                return
+            known_tracks = self.sql.execute('select track, title from songs where artist=? and album=?',
+                                            (artist, albumname)).fetchall()
+            known_tracks = [(track, title, normalcase(title)) for track, title in known_tracks]
+            if known_tracks:
+                known_tracks.sort()
+                min_tracks = known_tracks[-1][0]
+                tracknames = [i[2] for i in known_tracks]
+        album = (self.online.album(onlinedata.BRAINZ, albumname, artist,
+                                   tracknames, min_tracks)
+                 or self.online.album(onlinedata.LASTFM, albumname, artist,
+                                      tracknames, min_tracks)
+                 or self.online.album(onlinedata.GROOVESHARK, albumname, artist,
+                                      tracknames, min_tracks))
 
-        if not known_tracks or not album:
+        if not album:
             try:
                 albumname = self.correct_album(albumname)
             except NotFoundOnline:
@@ -348,6 +356,9 @@ class Database:
             album = (self.online.album(onlinedata.BRAINZ, albumname, artist)
                      or self.online.album(onlinedata.LASTFM, albumname, artist)
                      or self.online.album(onlinedata.GROOVESHARK, albumname, artist))
+        assert(album)
+        if not artist:
+            artist = album.artist
         for i, track in enumerate(album.tracks()):
             for idx, song, norm in known_tracks:
                 if norm == normalcase(track.name):
@@ -395,9 +406,7 @@ class Database:
         if artist:
             return artist[0]
         else:
-            return (self.online.album(onlinedata.BRAINZ, album)
-                    or self.online.album(onlinedata.LASTFM, album)
-                    or self.online.album(onlinedata.GROOVESHARK, album)).artist
+            return ''
 
     def reduce_album(self, artist, album):
         self.fill_album(artist, album)
@@ -486,16 +495,24 @@ class Database:
             return
         new_files = self.online.download_by_list(data)
         print(new_files)
+        print(new_files)
         print(songs)
-        # assert (len(new_files) == len(songs))
+        if len(new_files) != len(songs):
+            return
+        success = 0
         for (title, artist, album, track, dummy_filename), new_filename in zip(songs, new_files):
+            if not new_filename:
+                logger.debug('download of ' + title + ' failed, omitting')
+                continue
             print('title, artist, album, track, dummy_filename, new_filename')
             print(title, artist, album, track, dummy_filename, new_filename)
             right_filename = self.move_file(new_filename, track, artist, album, title)[0]
             self.sql.execute('update songs set filename=? where filename=?',
                              (right_filename, dummy_filename))
             os.remove(new_filename)
+            success += 1
         self.sql.commit()
+        print(success, 'songs successfully downloaded')
 
 
 if __name__ == '__main__':

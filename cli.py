@@ -2,15 +2,7 @@
 # warnings.simplefilter('ignore')
 import os
 
-if os.name == 'nt':
-    import pyreadline
-    import py_readline as readline
-    import rlcompleter
-    # readline.parse_and_bind("tab: complete")
-    # pyreadline.unicode_helper.pyreadline_codepage = "utf8"
-    # readline.read_history_file()
-else:
-    import readline
+import readline
 
 import cmd
 import colorama
