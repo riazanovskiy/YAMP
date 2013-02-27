@@ -1,8 +1,8 @@
 import unittest
-import os
+from unittest.mock import patch
 
 import onlinedata as onlinedata
-from misc import normalcase, filesize
+from misc import normalcase
 
 
 class TestOnlineData(unittest.TestCase):

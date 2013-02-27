@@ -23,7 +23,7 @@ def get_yn_promt(promt):
 class YampShell(cmd.Cmd):
     prompt = '$ ' if os.name == 'nt' else '> '
     file = None
-    doc_header = 'This is yet another music player.'
+    # doc_header = 'This is yet another music player.'
     _artists = []
     _albums = []
 
@@ -239,4 +239,4 @@ if __name__ == '__main__':
     logger.info('Started')
     readline.set_completer_delims(' \t\n;')
     # readline.parse_and_bind("tab: complete")
-    YampShell(completekey='tab').cmdloop('')
+    YampShell(completekey='tab').cmdloop('This is yet another media player.\nUse help or help <command> to get help. ')

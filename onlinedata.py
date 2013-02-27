@@ -261,7 +261,7 @@ class OnlineData:
         except Exception as exc:
             logger.exception(exc)
             logger.debug('download of ' + repr(data) + ' failed')
-            raise
+            return ''
 
     def download_as(self, title, artist='', album='', track=0):
         '''Downloads song and set its tags to given title, artist, album'''
@@ -275,8 +275,8 @@ class OnlineData:
         for download in providers:
             try:
                 data = download(artist + ' ' + title)
-            except:
-                pass
+            except Exception as exc:
+                logger.exception(exc)
             else:
                 break
         else:
