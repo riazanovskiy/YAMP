@@ -115,11 +115,10 @@ def detect_tag(filename):
                            .format(*header[3:5]))
         cls = _tag_versions[header[3]]
         offset = 0
-        length = 10 + Syncsafe.decode(header[6:10])
+        length = Syncsafe.decode(header[6:10]) + 10
         if header[3] == 4 and header[5] & _TAG24_FOOTER:
             length += 10
         return (cls, offset, length)
-
 
 def frameclass(cls):
     """Register cls as a class representing an ID3 frame.
@@ -131,8 +130,7 @@ def frameclass(cls):
 
     @frameclass
     class UFID(Frame):
-        _framespec = (
-            NullTerminatedStringSpec("owner"), BinaryDataSpec("data"))
+        _framespec = (NullTerminatedStringSpec("owner"), BinaryDataSpec("data"))
     """
     assert issubclass(cls, Frames.Frame)
 
@@ -162,7 +160,6 @@ def frameclass(cls):
     Tag.known_frames[cls.frameid] = cls
 
     return cls
-
 
 class FrameOrder:
     """Order frames based on their position in a predefined list of patterns,
@@ -227,7 +224,7 @@ class FrameOrder:
 
 
 class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
-    known_frames = {}        # Maps known frameids to Frame class objects
+    known_frames = { }        # Maps known frameids to Frame class objects
 
     frame_order = None        # Initialized by stagger.id3
 
@@ -294,8 +291,7 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
                 raise KeyError("{0}: Invalid frame id".format(key))
             if key not in self.known_frames:
                 if unknown_ok:
-                    warn("{0}: Unknown frame id".format(
-                        key), UnknownFrameWarning)
+                    warn("{0}: Unknown frame id".format(key), UnknownFrameWarning)
                 else:
                     raise KeyError("{0}: Unknown frame id".format(key))
         return key
@@ -325,12 +321,11 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
             return
         if self.known_frames[key]._allow_duplicates:
             if not isinstance(value, collections.Iterable) or isinstance(value, str):
-                raise ValueError("{0} requires a list of frame values".format(
-                    key))
+                raise ValueError("{0} requires a list of frame values".format(key))
             self._frames[key] = [val if isinstance(val, self.known_frames[key])
                                  else self.known_frames[key](val)
                                  for val in value]
-        else:  # not _allow_duplicates
+        else: # not _allow_duplicates
             self._frames[key] = [self.known_frames[key](value)]
 
     def __delitem__(self, key):
@@ -342,59 +337,40 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
                 yield frame
 
     # Friendly names API
-    _friendly_names = ["title", "artist",
-                       "date",
-                       "album-artist", "album",
-                       "track", "track-total",
-                       "disc", "disc-total",
-                       "grouping", "composer",
-                       "genre",
-                       "comment",
-                       #"compilation",
-                       "picture",
-                       "sort-title", "sort-artist",
-                       "sort-album-artist", "sort-album",
-                       "sort-composer",
-                       ]
+    _friendly_names = [ "title", "artist",
+                        "date",
+                        "album-artist", "album",
+                        "track", "track-total",
+                        "disc", "disc-total",
+                        "grouping", "composer",
+                        "genre",
+                        "comment",
+                        #"compilation",
+                        "picture",
+                        "sort-title", "sort-artist",
+                        "sort-album-artist", "sort-album",
+                        "sort-composer",
+                        ]
 
-    title = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    artist = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    date = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    album_artist = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    album = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    track = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    track_total = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    disc = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    disc_total = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    composer = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    genre = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    comment = abstractproperty(
-        fget=lambda self: Non, fset=lambda self, value: None)
-    grouping = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    picture = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    sort_title = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    sort_artist = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    sort_album_artist = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    sort_album = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
-    sort_composer = abstractproperty(
-        fget=lambda self: None, fset=lambda self, value: None)
+    title = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    artist = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    date = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    album_artist = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    album = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    track = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    track_total = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    disc = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    disc_total = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    composer = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    genre = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    comment = abstractproperty(fget=lambda self: Non, fset=lambda self, value: None)
+    grouping = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    picture = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    sort_title = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    sort_artist = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    sort_album_artist = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    sort_album = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
+    sort_composer = abstractproperty(fget=lambda self: None, fset=lambda self, value: None)
 
     def __friendly_text_collect(self, frameid):
         """Collect text values from all instances of FRAMEID into a single list.
@@ -409,7 +385,6 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
     def _friendly_text_frame(cls, frameid):
         def getter(self):
             return " / ".join(self.__friendly_text_collect(frameid))
-
         def setter(self, value):
             if isinstance(value, str):
                 if len(value):
@@ -430,7 +405,6 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
                 return int(ts[0].partition("/")[0])
             except (ValueError, IndexError):
                 return 0
-
         def setter(self, value):
             value = int(value)
             total = getattr(self, totalattr)
@@ -450,7 +424,6 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
                 return int(ts[0].partition("/")[2])
             except (ValueError, IndexError):
                 return 0
-
         def setter(self, value):
             value = int(value)
             track = getattr(self, trackattr)
@@ -549,7 +522,6 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
                                          len(f.data),
                                          imghdr.what(None, f.data[:32]))
                                  for f in self[frameid])
-
         def setter(self, value):
             if len(value) > 0:
                 self[frameid] = [self.known_frames[frameid](value=value)]
@@ -574,22 +546,19 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
                     if icmt is None:
                         icmt = i
             return icmt
-
         def getter(self):
             i = comment_frame_index(self)
             if i is None:
                 return ""
             else:
                 return self[frameid][i].text
-
         def setter(self, value):
             assert isinstance(value, str)
             i = comment_frame_index(self)
             if i is not None:
                 del self._frames[frameid][i]
             if len(value) > 0:
-                frame = self.known_frames[frameid](
-                    lang="eng", desc="", text=value)
+                frame = self.known_frames[frameid](lang="eng", desc="", text=value)
                 if frameid not in self._frames:
                     self._frames[frameid] = []
                 self._frames[frameid].append(frame)
@@ -603,6 +572,7 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
             ("({0})".format(", ".join(self.flags))
              if len(self.flags) > 0 else ""),
             len(self._frames))
+
 
     # Reading tags
     @classmethod
@@ -648,10 +618,10 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
                 # Unknown frame
                 flags.add("unknown")
                 warn("{0}: Unknown frame".format(frameid), UnknownFrameWarning)
-                if frameid.startswith('T'):  # Unknown text frame
+                if frameid.startswith('T'): # Unknown text frame
                     return Frames.TextFrame._decode(frameid, data, flags,
                                                     frameno=frameno)
-                elif frameid.startswith('W'):  # Unknown URL frame
+                elif frameid.startswith('W'): # Unknown URL frame
                     return Frames.URLFrame._decode(frameid, data, flags,
                                                    frameno=frameno)
                 else:
@@ -662,18 +632,17 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
             return Frames.ErrorFrame(frameid, data, exception=e, frameno=frameno)
 
     @abstractmethod
-    def _read_header(self, file):
-        pass
+    def _read_header(self, file): pass
 
     @abstractmethod
-    def _read_frames(self, file):
-        pass
+    def _read_frames(self, file): pass
 
     @abstractmethod
-    def _interpret_frame_flags(self, frameid, bflags, data):
-        pass
+    def _interpret_frame_flags(self, frameid, bflags, data): pass
+
 
     # Writing tags
+
     def write(self, filename=None):
         if not filename:
             filename = self._filename
@@ -753,6 +722,7 @@ class Tag(collections.MutableMapping, metaclass=abc.ABCMeta):
         return newframes
 
 
+
 class Tag22(Tag):
     version = 2
     encodings = ("latin-1", "utf-16")
@@ -771,8 +741,7 @@ class Tag22(Tag):
     @date.setter
     def date(self, value):
         self._validate_friendly_date(value)
-        (year, month, day, hour, minute,
-            second) = self._get_friendly_date(value)
+        (year, month, day, hour, minute, second) = self._get_friendly_date(value)
         for f in "TYE", "TDA", "TIM":
             if f in self:
                 del self[f]
@@ -808,7 +777,7 @@ class Tag22(Tag):
             raise NoTagError("ID3v2.2 header not found")
         if header[5] & 0x80:
             self.flags.add("unsynchronised")
-        if header[5] & 0x40:  # Compression bit is ill-defined in standard
+        if header[5] & 0x40: # Compression bit is ill-defined in standard
             raise TagError("ID3v2.2 tag compression is not supported")
         if header[5] & 0x3F:
             warn("Unknown ID3v2.2 flags", TagWarning)
@@ -878,7 +847,6 @@ class Tag22(Tag):
         assert len(data) == size
         return data
 
-
 class Tag23(Tag):
     version = 3
     encodings = ("latin-1", "utf-16")
@@ -897,8 +865,7 @@ class Tag23(Tag):
     @date.setter
     def date(self, value):
         self._validate_friendly_date(value)
-        (year, month, day, hour, minute,
-            second) = self._get_friendly_date(value)
+        (year, month, day, hour, minute, second) = self._get_friendly_date(value)
         for f in "TYER", "TDAT", "TIME":
             if f in self:
                 del self[f]
@@ -986,11 +953,10 @@ class Tag23(Tag):
             expanded_size = Int8.decode(data[0:4])
             data = zlib.decompress(data[4:])
         if bflags & _FRAME23_FORMAT_ENCRYPTED:
-            raise FrameError("{0}: Can't read ID3v2.3 encrypted frames".format(
-                frameid))
+            raise FrameError("{0}: Can't read ID3v2.3 encrypted frames".format(frameid))
         if bflags & _FRAME23_FORMAT_GROUP:
             flags.add("group")
-            flags.add("group={0}".format(data[0]))  # Hack
+            flags.add("group={0}".format(data[0])) # Hack
             data = data[1:]
         # Frame status messages
         if bflags & _FRAME23_STATUS_DISCARD_ON_TAG_ALTER:
@@ -1031,8 +997,7 @@ class Tag23(Tag):
         data = bytearray()
         # Frame id
         if len(frame.frameid) != 4 or not self._is_frame_id(frame.frameid.encode("ASCII")):
-            raise ValueError("Invalid ID3v2.3 frame id {0}".format(
-                repr(frame.frameid)))
+            raise ValueError("Invalid ID3v2.3 frame id {0}".format(repr(frame.frameid)))
         data.extend(frame.frameid.encode("ASCII"))
         # Size
         data.extend(Int8.encode(len(frameinfo) + len(framedata), width=4))
@@ -1069,7 +1034,6 @@ class Tag23(Tag):
             data.extend(b"\x00" * (size - len(data)))
         assert len(data) == size
         return data
-
 
 class Tag24(Tag):
     ITUNES_WORKAROUND = False
@@ -1145,7 +1109,7 @@ class Tag24(Tag):
         length = data[0]
         if length & 128:
             raise TagError("Invalid size of extended header field")
-        return (data[1:1 + length], data[1 + length:])
+        return (data[1:1+length], data[1+length:])
 
     def __read_extended_header(self, file):
         size = Syncsafe.decode(fileutil.xread(file, 4))
@@ -1160,7 +1124,7 @@ class Tag24(Tag):
                  .format(numflags),
                  TagWarning)
         flags = data[1]
-        data = data[1 + numflags:]
+        data = data[1+numflags:]
         if flags & 0x40:
             self.flags.add("ext:update")
             (dummy, data) = self.__read_extended_header_flag_data(data)
@@ -1170,10 +1134,9 @@ class Tag24(Tag):
             self.crc32 = Syncsafe.decode(self.crc32)
         if flags & 0x10:
             self.flags.add("ext:restrictions")
-            (self.restrictions, data) = self.__read_extended_header_flag_data(
-                data)
+            (self.restrictions, data) = self.__read_extended_header_flag_data(data)
 
-    def _read_frames(self, file, syncsafe_workaround=None):
+    def _read_frames(self, file, syncsafe_workaround = None):
         # Older versions of iTunes stored frame sizes as straight 8bit integers,
         # not syncsafe values as the spec requires.
         # (The bug is known to be fixed in iTunes 8.2.)
@@ -1223,13 +1186,12 @@ class Tag24(Tag):
             raise FrameError("{0}: Unknown frame encoding flags: 0x{1:X}".format(frameid, bflags))
         if bflags & _FRAME24_FORMAT_GROUP:
             flags.add("group")
-            flags.add("group={0}".format(data[0]))  # hack
+            flags.add("group={0}".format(data[0])) # hack
             data = data[1:]
         if bflags & _FRAME24_FORMAT_COMPRESSED:
             flags.add("compressed")
         if bflags & _FRAME24_FORMAT_ENCRYPTED:
-            raise FrameError("{0}: Can't read encrypted frames".format(
-                frameid))
+            raise FrameError("{0}: Can't read encrypted frames".format(frameid))
         if bflags & _FRAME24_FORMAT_UNSYNCHRONISED:
             flags.add("unsynchronised")
         expanded_size = len(data)

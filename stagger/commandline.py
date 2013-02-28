@@ -69,7 +69,7 @@ def create_parser():
     group.add_option("-p", "--print", action="store_true", dest="print",
                      help="Print tag contents (default)")
     group.add_option("-d", "--delete", action="store_true", dest="delete",
-                     help="Delete tags")
+                      help="Delete tags")
 
     group.add_option("-s", "--set", action="append", nargs=2, dest="set",
                      metavar="FRAME VALUE",
@@ -125,10 +125,8 @@ def main():
     # Work around idiotical python encoding heuristics:
     # Use locale-specified encoding on both stdout and stderr,
     # regardless of whether they are ttys
-    sys.stdout = codecs.getwriter(
-        locale.getpreferredencoding())(sys.stdout.buffer)
-    sys.stderr = codecs.getwriter(
-        locale.getpreferredencoding())(sys.stderr.buffer)
+    sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout.buffer)
+    sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr.buffer)
 
     parser = create_parser()
     (options, args) = parser.parse_args()
@@ -152,8 +150,7 @@ def main():
 
     try:
         if options.dump:
-            sys.stdout.stream.write(
-                stagger.util.get_raw_tag_data(options.dump))
+            sys.stdout.stream.write(stagger.util.get_raw_tag_data(options.dump))
 
         elif options.load:
             data = sys.stdin.buffer.read()
@@ -201,8 +198,7 @@ def main():
             for filename in args:
                 with stagger.util.print_warnings(filename, options):
                     try:
-                        stagger.util.set_frames(filename,
-                                                dict(options.set), **par)
+                        stagger.util.set_frames(filename, dict(options.set), **par)
                         sys.stderr.flush()
                         sys.stdout.flush()
                     except (KeyError, ValueError) as e:

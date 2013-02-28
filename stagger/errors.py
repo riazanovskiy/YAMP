@@ -30,62 +30,22 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+class Error(Exception): pass
 
-class Error(Exception):
-    pass
+class Warning(Error, UserWarning): pass
 
+class FrameWarning(Warning): pass
+class ErrorFrameWarning(FrameWarning): pass
+class UnknownFrameWarning(FrameWarning): pass
+class EmptyFrameWarning(FrameWarning): pass
+class DuplicateFrameWarning(FrameWarning): pass
+class UntestedFrameWarning(FrameWarning): pass
+class BozoFrameWarning(FrameWarning): pass
 
-class Warning(Error, UserWarning):
-    pass
+class TagWarning(Warning): pass
 
-
-class FrameWarning(Warning):
-    pass
-
-
-class ErrorFrameWarning(FrameWarning):
-    pass
-
-
-class UnknownFrameWarning(FrameWarning):
-    pass
-
-
-class EmptyFrameWarning(FrameWarning):
-    pass
-
-
-class DuplicateFrameWarning(FrameWarning):
-    pass
-
-
-class UntestedFrameWarning(FrameWarning):
-    pass
-
-
-class BozoFrameWarning(FrameWarning):
-    pass
-
-
-class TagWarning(Warning):
-    pass
-
-
-class NoTagError(Error):
-    pass
-
-
-class TagError(Error, ValueError):
-    pass
-
-
-class NotAFrameError(Error):
-    pass
-
-
-class FrameError(Error):
-    pass
-
-
-class IncompatibleFrameError(FrameError):
-    pass
+class NoTagError(Error): pass
+class TagError(Error, ValueError): pass
+class NotAFrameError(Error): pass
+class FrameError(Error): pass
+class IncompatibleFrameError(FrameError): pass

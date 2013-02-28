@@ -92,7 +92,7 @@ class YampShell(cmd.Cmd):
             database.writeout()
 
     def help_move(self):
-        print('Moves all the files to corresponding folders.')
+        print('Copies or moves all the files to corresponding folders.')
 
 ############# show ########################################################################################
 
@@ -200,9 +200,6 @@ class YampShell(cmd.Cmd):
         print("This will fetch mp3 file for songs which don't have one.")
         print('This will fetch up to count files or all of them if count is not specified')
 
-    # def complete_fetch(self, text, line, begidx, endidx):
-        # return self._complete(line, begidx)
-
     def do_fetch(self, args):
         args = args.strip()
         if args:
@@ -214,9 +211,14 @@ class YampShell(cmd.Cmd):
         else:
             count = 0
         database.fetch_data(count)
+
+    def complete_fetch(self, text, line, begidx, endidx):
+        return self._complete(line, begidx)
+
 ############# EOF ########################################################################################
 
     def do_EOF(self, args):
+        database.writeout()
         print()
         print('Exiting')
         return True

@@ -1,22 +1,22 @@
 #
-# conversion.py
+# conversion.py 
 # From the stagger project: http://code.google.com/p/stagger/
 #
 # Copyright (c) 2009-2011 Karoly Lorentey  <karoly@lorentey.hu>
 # All rights reserved.
-#
+# 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
-#
+# 
 # - Redistributions of source code must retain the above copyright
 #   notice, this list of conditions and the following disclaimer.
-#
+# 
 # - Redistributions in binary form must reproduce the above copyright
 #   notice, this list of conditions and the following disclaimer in
 #   the documentation and/or other materials provided with the
 #   distribution.
-#
+# 
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -32,7 +32,6 @@
 
 from stagger.errors import *
 from warnings import warn
-
 
 class Unsync:
     "Conversion from/to unsynchronized byte sequences."
@@ -53,11 +52,11 @@ class Unsync:
         sync = False
         for b in data:
             if sync and (b == 0x00 or b & 0xE0):
-                yield 0x00  # Insert sync char
+                yield 0x00 # Insert sync char
             yield b
             sync = (b == 0xFF)
         if sync:
-            yield 0x00  # Data ends on 0xFF
+            yield 0x00 # Data ends on 0xFF
 
     @staticmethod
     def decode(data):
@@ -68,7 +67,6 @@ class Unsync:
     def encode(data):
         "Insert unsynchronization bytes into data."
         return bytes(Unsync.gen_encode(data))
-
 
 class UnsyncReader:
     "Unsynchronized file reader."
@@ -88,7 +86,6 @@ class UnsyncReader:
         if len(data) < n:
             raise EOFError
         return data
-
 
 class Syncsafe:
     """Conversion to/from syncsafe integers.
@@ -126,7 +123,6 @@ class Syncsafe:
         data.reverse()
         return data
 
-
 class Int8:
     """Conversion to/from binary integer values of any length."""
 
@@ -145,8 +141,7 @@ class Int8:
         assert width != 0
         if i is None:
             i = 0
-        if i < 0:
-            raise ValueError("Nonnegative integer expected")
+        if i < 0: raise ValueError("Nonnegative integer expected")
         data = bytearray()
         while i:
             data.append(i & 255)

@@ -108,7 +108,7 @@ def replace_chunk(filename, offset, length, chunk, in_place=True, max_mem=5):
 
 def _replace_chunk(filename, offset, length, chunk, in_place, max_mem):
     assert isinstance(filename, str) or in_place
-    with opened(filename, "rb+") as file:
+    with opened(filename, "wb") as file:
         # If the sizes match, we can simply overwrite the original data.
         if length == len(chunk):
             file.seek(offset)
@@ -127,8 +127,7 @@ def _replace_chunk(filename, offset, length, chunk, in_place, max_mem):
             return
 
         if in_place:
-            _replace_chunk_in_place(
-                file, offset, length, chunk, oldsize, newsize)
+            _replace_chunk_in_place(file, offset, length, chunk, oldsize, newsize)
         else:  # not in_place
             temp = tempfile.NamedTemporaryFile(dir=os.path.dirname(filename),
                                                prefix="stagger-",
@@ -195,5 +194,9 @@ def _replace_chunk_in_place(file, offset, length, chunk, oldsize, newsize):
     else:
         # mmap did work, we just need to truncate any leftover parts
         # at the end
-        file.truncate(newsize)
+        try:
+            file.truncate(newsize)
+        except PermissionError:
+            pass
+            print ('That PermissionError :(')
         return

@@ -27,7 +27,7 @@ class LastSong:
         if album:
             self.album = improve_encoding(album.title)
         self.track = 0
-        logger.debug('in LastSong: ' + str(self.name) + ' ' + str(self.album))
+        logger.debug('in LastSong(name=' + str(self.name) + ', album=' + str(self.album) + ')')
 
 
 class LastAlbum:
@@ -285,11 +285,29 @@ class OnlineData:
         filename = str(track).zfill(2) + ' - ' + artist + '-' + title + '.mp3'  # + '__' + str(random.randint(100000, 999999))
         with open(filename, 'wb') as file:
             file.write(data.read())
+            file.flush()
         tag = open_tag(filename)
-        artist = artist or tag.artist.strip()
-        title = title or tag.title.strip()
-        album = album or tag.album.strip()
-        track = track or tag.track
+        if not artist:
+            artist = tag.artist.strip()
+            logger.info("Setting new song's artist to " + artist)
+        elif tag.artist.strip():
+            logger.info('Original artist was ' + tag.artist.strip())
+        if not title:
+            title = tag.title.strip()
+            logger.info("Setting new song's title to " + title)
+        elif tag.title.strip():
+            logger.info('Original title was ' + tag.title.strip())
+        if not album:
+            album = tag.album.strip()
+            logger.info("Setting new song's album to " + album)
+        elif tag.album.strip():
+            logger.info('Original album was ' + tag.album.strip())
+        if not track:
+            track = tag.track
+            logger.info("Setting new song's track to " + str(track))
+        else:
+            logger.info('Original track was ' + str(tag.track))
+
         tag._frames.clear()
         tag.title = title
         tag.artist = artist
@@ -321,5 +339,5 @@ class OnlineData:
                 # return pool.map(self.download_tuple, data)
         except urllib.error.URLError as exc:
             print ('Can not fetch songs')
-            pprint(exc)
+            logger.exception(exc)
             return []

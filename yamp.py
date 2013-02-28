@@ -93,7 +93,7 @@ class Database:
         self.sql.commit()
 
     def writeout(self):
-        cursor = self.sql.execute('select track, artist, album, title, filename, '
+        cursor = self.sql.execute('select track, artist, album, title, filename '
                                   ' from songs where has_file=1')
         for track, artist, album, title, filename in cursor:
             tag = open_tag(filename)
@@ -494,9 +494,6 @@ class Database:
             print('No songs to fetch')
             return
         new_files = self.online.download_by_list(data)
-        print(new_files)
-        print(new_files)
-        print(songs)
         if len(new_files) != len(songs):
             return
         success = 0
@@ -504,8 +501,6 @@ class Database:
             if not new_filename:
                 logger.debug('download of ' + title + ' failed, omitting')
                 continue
-            print('title, artist, album, track, dummy_filename, new_filename')
-            print(title, artist, album, track, dummy_filename, new_filename)
             right_filename = self.move_file(new_filename, track, artist, album, title)[0]
             self.sql.execute('update songs set filename=? where filename=?',
                              (right_filename, dummy_filename))

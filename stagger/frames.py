@@ -41,7 +41,6 @@ from warnings import warn
 from stagger.errors import *
 from stagger.specs import *
 
-
 class Frame(metaclass=abc.ABCMeta):
     _framespec = tuple()
     _version = tuple()
@@ -182,13 +181,12 @@ class Frame(metaclass=abc.ABCMeta):
                 data = getattr(self, spec.name)
                 if isinstance(data, (bytes, bytearray)):
                     args.append("{0}=<{1} bytes of binary data {2!r}{3}>".format(
-                                spec.name, len(data),
-                                data[:20], "..." if len(data) > 20 else ""))
+                            spec.name, len(data),
+                            data[:20], "..." if len(data) > 20 else ""))
                 else:
                     args.append(repr(data))
             else:
-                args.append("{0}={1!r}".format(
-                    spec.name, getattr(self, spec.name)))
+                args.append("{0}={1!r}".format(spec.name, getattr(self, spec.name)))
         return "{0}({1})".format(stype, ", ".join(args))
 
     def _spec(self, name):
@@ -213,10 +211,8 @@ class Frame(metaclass=abc.ABCMeta):
 
     def __str__(self):
         flag = " "
-        if "unknown" in self.flags:
-            flag = "?"
-        if isinstance(self, ErrorFrame):
-            flag = "!"
+        if "unknown" in self.flags: flag = "?"
+        if isinstance(self, ErrorFrame): flag = "!"
         return "{0}{1}({2})".format(flag, self.frameid, self._str_fields())
 
 
@@ -256,8 +252,7 @@ class TextFrame(Frame):
                         yield v
             else:
                 raise ValueError("Invalid text frame value")
-        super().__init__(
-            frameid=frameid, flags=flags, frameno=frameno, **kwargs)
+        super().__init__(frameid=frameid, flags=flags, frameno=frameno, **kwargs)
         self.text.extend(list(extract_strs(values)))
 
     @classmethod
@@ -318,8 +313,7 @@ class CreditsFrame(Frame):
 
 class PictureFrame(Frame):
     def __init__(self, value=None, frameid=None, flags=None, frameno=None, **kwargs):
-        super().__init__(
-            frameid=frameid, flags=flags, frameno=frameno, **kwargs)
+        super().__init__(frameid=frameid, flags=flags, frameno=frameno, **kwargs)
         if value is not None:
             with open(value, "rb") as file:
                 self.data = file.read()
