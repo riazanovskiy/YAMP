@@ -290,22 +290,22 @@ class OnlineData:
         if not artist:
             artist = tag.artist.strip()
             logger.info("Setting new song's artist to " + artist)
-        elif tag.artist.strip():
+        elif tag.artist.strip() != artist:
             logger.info('Original artist was ' + tag.artist.strip())
         if not title:
             title = tag.title.strip()
             logger.info("Setting new song's title to " + title)
-        elif tag.title.strip():
+        elif tag.title.strip() != title:
             logger.info('Original title was ' + tag.title.strip())
         if not album:
             album = tag.album.strip()
             logger.info("Setting new song's album to " + album)
-        elif tag.album.strip():
+        elif tag.album.strip() != album:
             logger.info('Original album was ' + tag.album.strip())
         if not track:
             track = tag.track
             logger.info("Setting new song's track to " + str(track))
-        else:
+        elif tag.track != track:
             logger.info('Original track was ' + str(tag.track))
 
         tag._frames.clear()

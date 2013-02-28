@@ -17,7 +17,7 @@ def download(songname):
         logger.debug(exc)
         raise Exception('Can not access vpleer.ru')
     data = page.read()
-    result = re.search("audio0.*?oncli.*?play.*?'([^']*?)'", data.decode('utf-8'), re.DOTALL)
+    result = re.search("audio0.*?oncli.*?play.*?'([^']*?)'", repr(data), re.DOTALL)
     url = 'http://vpleer.ru' + result.groups()[0][:-1].replace('&amp;', '&')
     if result:
         try:
