@@ -2,6 +2,7 @@ import random
 import multiprocessing
 import urllib
 from pprint import pprint
+from functools import lru_cache
 
 import pylast
 import grooveshark
@@ -148,13 +149,18 @@ class BrainzArtist:
 
 
 class OnlineData:
-    def __init__(self):
+    def __init__(self, use_grooveshark=True):
         self.lastfm = pylast.LastFMNetwork('e494d3c2d1e99307336886c9e1f18af2',
                                            '989f1acfe251e590981d485ad9a82bd1')
-        grooveshark.setup_connection()
-        self.shark = grooveshark.singleton
+        if use_grooveshark:
+            grooveshark.setup_connection()
+            self.shark = grooveshark.singleton
+        else:
+            global GROOVESHARK
+            GROOVESHARK = BRAINZ
         brainz.set_useragent('HAT', '1.7.1', 'http://vk.com')
 
+    @lru_cache()
     def _search_artist(self, provider, known):
         logger.info('In _search_artist(' + str(provider) + ', ' + known + ') ')
         RESULTS_TO_REVIEW = 1
@@ -185,10 +191,12 @@ class OnlineData:
             logger.info('no output')
         return None
 
+    @lru_cache()
     def artist(self, provider, known):
         return (self._search_artist(provider, known)
                 or self._search_artist(provider, strip_brackets(known)))
 
+    @lru_cache()
     def _search_album(self, provider, title, artist='', tracks=[], min_tracks=0):
         logger.info('In _search_album(' + str(provider) + ', ' + str(title) + ', ' + str(artist) + ')')
         RESULTS_TO_REVIEW = 10
@@ -232,6 +240,7 @@ class OnlineData:
                                      strip_brackets(artist),
                                      tracks, min_tracks))
 
+    @lru_cache()
     def song(self, provider, title, artist=''):
         RESULTS_TO_REVIEW = 2
         search = [lambda: self.lastfm.search_for_track(artist, title).get_next_page(),
@@ -290,17 +299,17 @@ class OnlineData:
         if not artist:
             artist = tag.artist.strip()
             logger.info("Setting new song's artist to " + artist)
-        elif tag.artist.strip() != artist:
+        elif tag.artist.strip() and tag.artist.strip() != artist:
             logger.info('Original artist was ' + tag.artist.strip())
         if not title:
             title = tag.title.strip()
             logger.info("Setting new song's title to " + title)
-        elif tag.title.strip() != title:
+        elif tag.title.strip() and tag.title.strip() != title:
             logger.info('Original title was ' + tag.title.strip())
         if not album:
             album = tag.album.strip()
             logger.info("Setting new song's album to " + album)
-        elif tag.album.strip() != album:
+        elif tag.album.strip() and tag.album.strip() != album:
             logger.info('Original album was ' + tag.album.strip())
         if not track:
             track = tag.track
@@ -316,6 +325,7 @@ class OnlineData:
         tag.write()
         return filename
 
+    @lru_cache()
     def generic(self, what, query, artist=None):
         result = None
         if what == 'track':

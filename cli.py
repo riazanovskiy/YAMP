@@ -1,6 +1,7 @@
 # import warnings
 # warnings.simplefilter('ignore')
 import os
+from configparser import ConfigParser
 
 import readline
 
@@ -8,7 +9,7 @@ import cmd
 import colorama
 import glob
 
-import yamp
+import database
 from misc import verify_dir
 from log import logger
 
@@ -229,6 +230,11 @@ class YampShell(cmd.Cmd):
 if __name__ == '__main__':
     colorama.init()
     accept = False
+    config = ConfigParser()
+    # if os.path.exists('yampconfig'):
+        # config.read('yampconfig')
+    # else:
+        # pass
     path = 'C:\yamp'
     while not accept:
         path = os.path.abspath(input('Enter main path to music library: '))
@@ -237,7 +243,7 @@ if __name__ == '__main__':
             path = os.path.abspath(input('Enter main path to music library: '))
         accept = (prompt == 'yes' or prompt == 'y')
     verify_dir(path)
-    database = yamp.Database(path)
+    database = database.Database(path, use_grooveshark=input('Should we use grooveshark? ')[0] in ['yes', 'y'])
     logger.info('Started')
     readline.set_completer_delims(' \t\n;')
     # readline.parse_and_bind("tab: complete")
