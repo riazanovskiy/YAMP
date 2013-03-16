@@ -16,17 +16,30 @@ from log import logger
 
 def get_yn_promt(promt):
     ans = input(promt)
-    while ans not in ['y', 'n', '']:
+    while ans not in ['y', 'n', '', 'yes', 'no']:
         ans = input(promt)
-    return ans == 'y'
+    return ans == 'y' or ans == 'yes'
+
+
+def get_path_from_user():
+    accept = False
+    path = ''
+    while not accept:
+        path = os.path.abspath(input('Enter main path to music library: '))
+        prompt = input('Path is ' + path + ' (yes/no) ')
+        if prompt == 'no':
+            path = os.path.abspath(input('Enter main path to music library: '))
+        accept = (prompt == 'yes' or prompt == 'y')
+    verify_dir(path)
+    return path
 
 
 class YampShell(cmd.Cmd):
     prompt = '$ ' if os.name == 'nt' else '> '
-    file = None
-    # doc_header = 'This is yet another music player.'
-    _artists = []
-    _albums = []
+
+    def __init(self):
+        self._artists = []
+        self._albums = []
 
     def albums(self):
         self._albums = self._albums or list(database.get_albums_list())
@@ -227,22 +240,18 @@ class YampShell(cmd.Cmd):
     def emptyline(self):
         pass
 
+
 if __name__ == '__main__':
     colorama.init()
-    accept = False
     config = ConfigParser()
-    # if os.path.exists('yampconfig'):
-        # config.read('yampconfig')
-    # else:
-        # pass
-    path = 'C:\yamp'
-    while not accept:
-        path = os.path.abspath(input('Enter main path to music library: '))
-        prompt = input('Path is ' + path + ' (yes/no) ')
-        if prompt == 'no':
-            path = os.path.abspath(input('Enter main path to music library: '))
-        accept = (prompt == 'yes' or prompt == 'y')
-    verify_dir(path)
+    if os.path.exists('yampconfig'):
+        config.read('yampconfig')
+        path = config['DefaultDirectory']['path']
+    else:
+        path = get_path_from_user()
+        config['DefaultDirectory'] = {'path': path}
+        with open('yampconfig', 'w') as file:
+            config.write(file)
     database = database.Database(path, use_grooveshark=input('Should we use grooveshark? ')[0] in ['yes', 'y'])
     logger.info('Started')
     readline.set_completer_delims(' \t\n;')

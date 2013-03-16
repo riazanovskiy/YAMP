@@ -236,9 +236,9 @@ class OnlineData:
 
     def album(self, provider, title, artist='', tracks=[], min_tracks=0):
         return (self._search_album(provider, title, artist, tracks, min_tracks)
-               or self._search_album(provider, strip_brackets(title),
-                                     strip_brackets(artist),
-                                     tracks, min_tracks))
+                or self._search_album(provider, strip_brackets(title),
+                                      strip_brackets(artist),
+                                      tracks, min_tracks))
 
     @lru_cache()
     def song(self, provider, title, artist=''):
@@ -348,6 +348,6 @@ class OnlineData:
             # with multiprocessing.Pool(processes=max(len(data) // 2, 2)) as pool:
                 # return pool.map(self.download_tuple, data)
         except urllib.error.URLError as exc:
-            print ('Can not fetch songs')
+            print('Can not fetch songs')
             logger.exception(exc)
             return []

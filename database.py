@@ -187,7 +187,7 @@ class Database:
         corrected_case = {}
         for i in case_mapping:
             if (len(case_mapping[i]) > 1 or case_mapping[i][0].isupper()
-                or case_mapping[i][0].islower()):
+               or case_mapping[i][0].islower()):
                 artist = ''
                 if field != 'artist':
                     artist = self.sql.execute('select artist from songs where {}=?'.format(field),
@@ -208,7 +208,7 @@ class Database:
             if old != new:
                 print('REPLACING', old, 'WITH', new)
                 self.sql.execute('update or ignore songs set {}=? where {}=?'.format(field, field),
-                                    (new, old))
+                                 (new, old))
                 self.sql.execute('delete from songs where {}=?'.format(field), (old,))
         self.sql.execute('update songs set {}_as_online=1'.format(field))
         self.sql.commit()
@@ -225,8 +225,7 @@ class Database:
         for i, j in data.items():
             if i != j:
                 print('REPLACING', i, 'WITH', j)
-                self.sql.execute('update songs set title=? where title=?',
-                                    (j, i))
+                self.sql.execute('update songs set title=? where title=?', (j, i))
         self.sql.commit()
 
     def remove_by_list(self, tracks, what):
@@ -267,7 +266,7 @@ class Database:
             for i, j in albums.items():
                 if j == query:
                     self.sql.execute('update or ignore songs set album=? where album=?',
-                                        (improved, i))
+                                     (improved, i))
                     self.sql.execute('delete from songs where album=?', (i,))
         self.sql.commit()
         return improved
@@ -319,7 +318,7 @@ class Database:
             for i, j in artists.items():
                 if j == artist:
                     self.sql.execute('update or ignore songs set artist=? where artist=?',
-                                        (improved, i))
+                                     (improved, i))
                     self.sql.execute('delete from songs where artist=?', (i,))
         self.sql.commit()
 
@@ -369,10 +368,9 @@ class Database:
                             print('REPLACING', song, 'WITH', track.name)
                         try:
                             self.sql.execute('update songs set track=?, title=?, '
-                                                ' artist_as_online=1, album_as_online=1, title_as_online=1 '
-                                                ' where title=? and artist=? and album=?',
-                                                (i + 1, track.name,
-                                                 song, artist, albumname))
+                                             ' artist_as_online=1, album_as_online=1, title_as_online=1 '
+                                             ' where title=? and artist=? and album=?',
+                                             (i + 1, track.name, song, artist, albumname))
                         except sqlite3.IntegrityError:
                             self.sql.execute('delete from songs where track=? and '
                                              ' title=? and artist=? and album=?',
@@ -396,7 +394,7 @@ class Database:
     def get_albums_list(self, artist=None):
         if artist:
             cursor = self.sql.execute('select distinct album from songs where artist=?',
-                                (artist,))
+                                      (artist,))
         else:
             cursor = self.sql.execute('select distinct album from songs')
         return (i for i, in cursor if i)
@@ -459,10 +457,10 @@ class Database:
                             print('REPLACING #' + str(track), old_title,
                                   'WITH #' + str(num), title)
                             self.sql.execute('update or ignore songs set title=?, track=? '
-                                                'where artist=? and album=? and title=?',
-                                                (title, num, artist, album, old_title))
+                                             'where artist=? and album=? and title=?',
+                                             (title, num, artist, album, old_title))
                             self.sql.execute('delete from songs where artist=? and album=? and title=?',
-                                                (artist, album, old_title))
+                                             (artist, album, old_title))
         self.sql.commit()
 
     def track_numbers_from_filename(self):
@@ -475,7 +473,7 @@ class Database:
         for filename, track in updated.items():
             print('Song', filename, ':  0 ->', track)
             self.sql.execute('update songs set track=? where filename=?',
-                                (track, filename))
+                             (track, filename))
         self.sql.commit()
 
     def track_numbers(self):
@@ -484,7 +482,7 @@ class Database:
 
     def fetch_data(self, count=0):
         songs = list(self.sql.execute("select title, artist, album, track, filename "
-                                 " from songs where filename like 'NOFILE%'"))
+                                      " from songs where filename like 'NOFILE%'"))
         if count > 0:
             songs = songs[:count]
         data = [song[:-1] for song in songs]
@@ -508,33 +506,3 @@ class Database:
             success += 1
         self.sql.commit()
         print(success, 'songs successfully downloaded')
-
-
-if __name__ == '__main__':
-    random.seed()
-    # database = Database('/home/dani/yamp')
-    # database.import_folder('/home/dani/Music')
-
-    # database.import_folder('/home/dani/tmp')
-    # database.import_folder('/home/dani/tmp_')
-    # database.import_folder('/home/dani/Fleur')
-    database.remove_extensions_from_tracks()
-    print('\x1b[41mTrack numbers\x1b[0m')
-    database.track_numbers()
-    print('\x1b[41mArtist correction\x1b[0m')
-    database.generic_correction('artist')
-    print('\x1b[41mAlbum correction\x1b[0m')
-    database.generic_correction('album')
-    print('\x1b[41mTrack correction\x1b[0m')
-    database.generic_correction('track')
-
-##########################################
-
-    # database.pretty_print()
-    # database.fill_album('Несчастный случай', 'Тоннель в конце света')
-    # database.fill_album('Наутилус Помпилиус', 'Князь тишины (VinylRip)')
-    # database.fill_album('Pink Floyd', 'The Dark Side of the Moon')
-    # database.fetch_tracks_for_artist('Pink Floyd', count=30)
-    # database.fetch_tracks_for_artist('Сплин')
-    # database.reduce_albums()
-    database.pretty_print()

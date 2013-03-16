@@ -15,7 +15,7 @@ def urldecode(str):
 
 
 def log_response(response):
-    print ('Status ' + str(response.status) + ' ' + response.reason)
+    print('Status ' + str(response.status) + ' ' + response.reason)
 
 
 def ok_code(response, message):
@@ -39,7 +39,7 @@ _cookie = None
 
 def safe_print(text):
     try:
-        print (text)
+        print(text)
     except:
         pass
 
