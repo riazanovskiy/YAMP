@@ -35,6 +35,7 @@ class Database:
                          ' artist text, album text, title text, bitrate int,'
                          ' duration int, filename text unique,'
                          ' has_file boolean, '
+                         ' actual boolean,'
                          # ' mbid text, '
                          ' artist_as_online boolean default 0, '
                          ' album_as_online boolean default 0, '
@@ -80,8 +81,8 @@ class Database:
         except:
             bitrate = 0
         self.sql.execute('insert or ignore into songs (track, artist, album,'
-                         ' title, bitrate, duration, filename, has_file)'
-                         'values (?, ?, ?, ?, ?, ?, ?, 1)',
+                         ' title, bitrate, duration, filename, has_file, actual)'
+                         'values (?, ?, ?, ?, ?, ?, ?, 1, 1)',
                          (track, artist, album, title, bitrate, duration, file))
 
     def import_folder(self, folder):
@@ -95,12 +96,13 @@ class Database:
 
     def writeout(self):
         cursor = self.sql.execute('select track, artist, album, title, filename '
-                                  ' from songs where has_file=1')
+                                  ' from songs where has_file=1 and actual=0')
         for track, artist, album, title, filename in cursor:
             tag = open_tag(filename)
             tag._frames.clear()
             tag.track, tag.artist, tag.album, tag.title = track, artist, album, title
             tag.write()
+        self.sql.execute('update songs set actual=1')
 
     def pretty_print(self, artist=None, album=None):
         if artist:
@@ -139,7 +141,7 @@ class Database:
         for old, new in data.items():
             if old != new:
                 print('REPLACING', old, 'WITH', new)
-                self.sql.execute('update or ignore songs set title=?, album=? where title=?',
+                self.sql.execute('update or ignore songs set title=?, album=?, actual=0 where title=?',
                                  (new, new_album, old))
                 self.sql.execute('delete from songs where title=?', (old,))
         self.sql.commit()
@@ -208,7 +210,7 @@ class Database:
         for old, new in data.items():
             if old != new:
                 print('REPLACING', old, 'WITH', new)
-                self.sql.execute('update or ignore songs set {}=? where {}=?'.format(field, field),
+                self.sql.execute('update or ignore songs set {}=?, actual=0 where {}=?'.format(field, field),
                                  (new, old))
                 self.sql.execute('delete from songs where {}=?'.format(field), (old,))
         self.sql.execute('update songs set {}_as_online=1'.format(field))
@@ -226,7 +228,7 @@ class Database:
         for i, j in data.items():
             if i != j:
                 print('REPLACING', i, 'WITH', j)
-                self.sql.execute('update songs set title=? where title=?', (j, i))
+                self.sql.execute('update songs set title=?, actual=0 where title=?', (j, i))
         self.sql.commit()
 
     def remove_by_list(self, tracks, what):
@@ -234,7 +236,7 @@ class Database:
             updated = i.replace(what, '')
             if updated != i:
                 print('REPLACING', i, 'WITH', updated)
-                self.sql.execute('update songs set title=? where title=?',
+                self.sql.execute('update songs set title=?, actual=0 where title=?',
                                  (updated, i))
         self.sql.commit()
 
@@ -251,7 +253,7 @@ class Database:
         for i, j in artists.items():
             if i != improved and j == query:
                 print('REPLACING', i, 'WITH', improved)
-                self.sql.execute('update or ignore songs set artist=?, artist_as_online=1 where artist=?',
+                self.sql.execute('update or ignore songs set artist=?, artist_as_online=1, actual=0 where artist=?',
                                  (improved, i))
                 self.sql.execute('delete from songs where artist=?', (i,))
         self.sql.commit()
@@ -298,8 +300,7 @@ class Database:
                              (artist, song.name, song.album, song.track, 'NOFILE' +
                              ''.join(random.choice(string.hexdigits) for x in range(16))))
         self.sql.commit()
-        print(self.sql.execute('select count (*) from songs').fetchone()[0] - inserted,
-              'songs added')
+        print(self.sql.execute('select count (*) from songs').fetchone()[0] - inserted, 'songs added')
 
     def merge_artists(self):
         artists = self.sql.execute('select distinct artist from songs').fetchall()
@@ -318,7 +319,7 @@ class Database:
             print('REPLACING', artist, 'WITH', improved)
             for i, j in artists.items():
                 if j == artist:
-                    self.sql.execute('update or ignore songs set artist=? where artist=?',
+                    self.sql.execute('update or ignore songs set artist=?, actual=0 where artist=?',
                                      (improved, i))
                     self.sql.execute('delete from songs where artist=?', (i,))
         self.sql.commit()
@@ -369,7 +370,7 @@ class Database:
                             print('REPLACING', song, 'WITH', track.name)
                         try:
                             self.sql.execute('update songs set track=?, title=?, '
-                                             ' artist_as_online=1, album_as_online=1, title_as_online=1 '
+                                             ' artist_as_online=1, album_as_online=1, title_as_online=1, actual=0'
                                              ' where title=? and artist=? and album=?',
                                              (i + 1, track.name, song, artist, albumname))
                         except sqlite3.IntegrityError:
@@ -457,7 +458,7 @@ class Database:
                             title = title.strip()
                             print('REPLACING #' + str(track), old_title,
                                   'WITH #' + str(num), title)
-                            self.sql.execute('update or ignore songs set title=?, track=? '
+                            self.sql.execute('update or ignore songs set title=?, track=?, actual=0 '
                                              'where artist=? and album=? and title=?',
                                              (title, num, artist, album, old_title))
                             self.sql.execute('delete from songs where artist=? and album=? and title=?',
@@ -473,7 +474,7 @@ class Database:
                 updated[filename] = track
         for filename, track in updated.items():
             print('Song', filename, ':  0 ->', track)
-            self.sql.execute('update songs set track=? where filename=?',
+            self.sql.execute('update songs set track=?, actual=0 where filename=?',
                              (track, filename))
         self.sql.commit()
 
