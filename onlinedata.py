@@ -145,7 +145,8 @@ class BrainzArtist:
         self._tracks = None
 
     def tracks(self):
-        raise NotImplementedError
+        logger.critical('NotImplementedError')
+        return []
 
 
 class OnlineData:
@@ -181,7 +182,7 @@ class OnlineData:
                     break
                 logger.info('Got artist result')
                 artist = Artist(result)
-                if (diff(artist.name, known) < 0.5 or (provider == 2
+                if (diff(artist.name, known) < 0.5 or (provider == BRAINZ
                                                        and 'alias-list' in result
                                                        and known in result['alias-list'])):
                     return artist
@@ -196,7 +197,6 @@ class OnlineData:
         return (self._search_artist(provider, known)
                 or self._search_artist(provider, strip_brackets(known)))
 
-    @lru_cache()
     def _search_album(self, provider, title, artist='', tracks=[], min_tracks=0):
         logger.info('In _search_album(' + str(provider) + ', ' + str(title) + ', ' + str(artist) + ')')
         RESULTS_TO_REVIEW = 10

@@ -5,6 +5,7 @@ import sqlite3
 import re
 import random
 import string
+import itertools
 from collections import defaultdict
 from pprint import pprint
 
@@ -387,11 +388,11 @@ class Database:
                     print('Can not insert: artist ', artist, 'album ', albumname, 'track', fetched_tracks[i][0])
         self.sql.commit()
 
-    def get_artists_list(self):
+    def get_artists(self):
         cursor = self.sql.execute('select distinct artist from songs')
         return (i for i, in cursor if i)
 
-    def get_albums_list(self, artist=None):
+    def get_albums(self, artist=None):
         if artist:
             cursor = self.sql.execute('select distinct album from songs where artist=?',
                                       (artist,))
@@ -480,11 +481,20 @@ class Database:
         self.track_numbers_from_filename()
         self.track_numbers_from_title()
 
-    def fetch_data(self, count=0):
-        songs = list(self.sql.execute("select title, artist, album, track, filename "
-                                      " from songs where filename like 'NOFILE%'"))
-        if count > 0:
-            songs = songs[:count]
+    def fetch_data(self, count=100500, artist=None, album=None):
+        request = "select title, artist, album, track, filename from songs where filename like 'NOFILE%'"
+        if artist:
+            if album:
+                cursor = self.sql.execute(request + ' and album=? and artist=?', (album, artist))
+            else:
+                cursor = self.sql.execute(request + ' and artist=?', (artist,))
+        else:
+            if album:
+                cursor = self.sql.execute(request + ' and album=?', (album,))
+            else:
+                cursor = self.sql.execute(request)
+
+        songs = [song for i, song in zip(range(count), cursor)]
         data = [song[:-1] for song in songs]
         if len(data):
             print('Fetching', len(data), 'song' + ('s' if len(data) > 1 else ''))
