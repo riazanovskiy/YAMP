@@ -83,7 +83,10 @@ def longest_common_substring(data):
 def diff(a, b):
     a = normalcase(a)
     b = normalcase(b)
-    return levenshtein(a, b) / min(len(a), len(b))
+    if min(len(a), len(b)) > 0:
+        return levenshtein(a, b) / min(len(a), len(b))
+    else:
+        return 1.0
 
 
 def filesize(file):

@@ -2,12 +2,14 @@ Yet Another Music Player
 
 --------------------------------------------------------
 
+Починить то, что скачиваются не те песни
+Починить битые mp3
+
+
 Функция play
 Функция rearrange -- сделать все треки в одной папке
 more всего альбома или только проставить номера
 Поиск одной песни наконец!!!!
-Починить то, что скачиваются не те песни
-Починить битые mp3
 
 Correct
 Change directory
@@ -50,6 +52,7 @@ Last.fm интеграция
     prostopleer.com
     musicbrainz.org
     tumblr.com
+    www.audiopoisk.com
 Распознавание: echoprint, last.fm Fingerprinter
 
 Работа с тегами:

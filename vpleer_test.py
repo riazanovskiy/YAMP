@@ -9,11 +9,11 @@ BYTES_TO_READ = 32768
 
 
 class TestDownloadVpleer(unittest.TestCase):
-    @for_examples(*songslist[:5])
-    def test_download(self, songname):
+    @for_examples(*songslist)
+    def test_download(self, artist, title):
         exc = None
         try:
-            data = vpleer.download(songname).read(BYTES_TO_READ)
+            data = vpleer.download(artist, title, BYTES_TO_READ)
         except:
             exc = sys.exc_info()
         self.assertIsNone(exc)

@@ -1,8 +1,9 @@
-songslist = ['Diamonds and rust',
-             'Deep Purple Highway star',
-             'Nirvana',
-             'Pink Floyd Wish You Were Here',
-             'ДДТ В последнюю осень',
+songslist = [("Blackmore's Night", 'Diamonds and rust'),
+             ('Deep Purple', 'Highway star'),
+             ('Nirvana', 'Rape Me'),
+             ('Pink Floyd', 'Wish You Were Here'),
+             ('ДДТ', 'В последнюю осень',)]
+'''
              'Щербаков Вишневое варенье',
              'Щербаков Райцентр',
              'Щербаков Завтра, вчера, всегда',
@@ -34,3 +35,4 @@ songslist = ['Diamonds and rust',
              'Иваси Февраль',
              'Иваси Как мы строили навес',
              'Иваси Трояк']
+'''

@@ -283,7 +283,7 @@ class OnlineData:
         exc = None
         for download in providers:
             try:
-                data = download(artist + ' ' + title)
+                data = download(artist, title)
             except Exception as exc:
                 logger.exception(exc)
             else:
@@ -293,8 +293,9 @@ class OnlineData:
 
         filename = str(track).zfill(2) + ' - ' + artist + '-' + title + '.mp3'  # + '__' + str(random.randint(100000, 999999))
         with open(filename, 'wb') as file:
-            file.write(data.read())
+            file.write(data)
             file.flush()
+        del data
         tag = open_tag(filename)
         if not artist:
             artist = tag.artist.strip()

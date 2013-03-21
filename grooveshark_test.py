@@ -12,11 +12,11 @@ class TestDownloadGrooveshark(unittest.TestCase):
     def setUp(self):
         grooveshark.setup_connection()
 
-    @for_examples(*songslist[:5])
-    def test_download(self, songname):
+    @for_examples(*songslist[:2])
+    def test_download(self, artist, title):
         exc = None
         try:
-            data = grooveshark.download(songname).read(BYTES_TO_READ)
+            data = grooveshark.download(artist, title, BYTES_TO_READ)
         except:
             exc = sys.exc_info()[1]
 

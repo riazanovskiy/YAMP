@@ -12,10 +12,12 @@ import hashlib
 import uuid
 import time
 
+from pprint import pprint
+
 from log import logger
 from errors import NotFoundOnline
 
-from misc import make_request, ungzip
+from misc import make_request, ungzip, diff
 
 
 class Grooveshark():
@@ -83,8 +85,7 @@ class Grooveshark():
         else:
             raise NotImplementedError(method)
 
-        if (method != 'getCommunicationToken'
-            and self.last_time - time.time() > self.timeout):
+        if (method != 'getCommunicationToken' and self.last_time - time.time() > self.timeout):
             self.getCommunicationToken()
 
         return json.JSONEncoder().encode(query)
@@ -241,27 +242,29 @@ def setup_connection():
     singleton.getCommunicationToken()
 
 
-def download(songname):
-    decoded = singleton.getResultsFromSearch(songname, 'Songs')
-
+def download(artist, title, limit=0):
+    decoded = singleton.getResultsFromSearch(artist + ' ' + title, 'Songs')
     try:
-        song = decoded['result']['Songs'][0]
+        result = decoded['result']
     except Exception:
-        try:
-            song = decoded['result'][0]
-        except:
-            raise NotFoundOnline()
-    try:
-        songid = song['SongID']
-    except:
         raise NotFoundOnline()
+    for song, i in zip(result, range(10)):
+        if (diff(song['ArtistName'], artist) < 0.3 and
+            ('SongName' in song and diff(song['SongName'], title) < 0.3) or
+            ('SongName' in song and diff(song['SongName'], title) < 0.3) and
+            'SongID' in song):
+            songid = song['SongID']
+            decoded = singleton.getStreamKeysFromSongIDs(songid)
+            result = decoded[songid]
+            stream_key = result['streamKey']
+            ip = result['ip']
+            response = singleton.download_from_stream_key(stream_key, ip)
+            if limit > 0:
+                return response.read(limit)
+            else:
+                return response.read()
 
-    decoded = singleton.getStreamKeysFromSongIDs(songid)
-
-    result = decoded[songid]
-    stream_key = result['streamKey']
-    ip = result['ip']
-    return singleton.download_from_stream_key(stream_key, ip)
+    raise NotFoundOnline
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -269,5 +272,5 @@ if __name__ == '__main__':
         sys.argv.append('test__.mp3')
     output = open(sys.argv[2], 'wb')
     setup_connection()
-    output.write(download(sys.argv[1]).read())
+    output.write(download(sys.argv[1], 'Via Con Me'))
     output.close()
