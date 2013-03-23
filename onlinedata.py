@@ -208,7 +208,7 @@ class OnlineData:
             else:
                 search_results = self.lastfm.search_for_album(title)
                 return search_results.get_next_page() + search_results.get_next_page()
-        search = [lambda: searchlast(),
+        search = [searchlast,
                   lambda: self.shark.getResultsFromSearch(title, 'Albums')['result'],
                   lambda: brainz.search_releases(title, artist=artist)['release-list']][provider]
         Album = [LastAlbum, SharkAlbum, BrainzAlbum][provider]

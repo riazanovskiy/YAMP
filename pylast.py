@@ -121,7 +121,7 @@ class _Network(object):
     """
 
     def __init__(self, name, homepage, ws_server, api_key, api_secret, session_key, submission_server, username, password_hash,
-                    domain_names, urls):
+                 domain_names, urls):
         """
             name: the name of the network
             homepage: the homepage url
@@ -1808,12 +1808,10 @@ class Event(_BaseObject):
 
         shouts = []
         for node in _collect_nodes(limit, self, "event.getShouts", False):
-            shouts.append(Shout(
-                                _extract(node, "body"),
+            shouts.append(Shout(_extract(node, "body"),
                                 User(_extract(node, "author"), self.network),
                                 _extract(node, "date")
-                                )
-                            )
+                                ))
         return shouts
 
     def shout(self, message):
@@ -2490,7 +2488,7 @@ class Track(_BaseObject, _Taggable):
 
         return seq
 
-    def get_top_fans(self, limit = None):
+    def get_top_fans(self, limit=None):
         """Returns a list of the Users who played this track."""
 
         doc = self._request('track.getTopFans', True)
@@ -2510,7 +2508,7 @@ class Track(_BaseObject, _Taggable):
 
         return seq
 
-    def share(self, users, message = None):
+    def share(self, users, message=None):
         """Shares this track (sends out recommendations).
           * users: A list that can contain usernames, emails, User objects, or all of them.
           * message: A message to include in the recommendation message.
@@ -2537,7 +2535,7 @@ class Track(_BaseObject, _Taggable):
 
         self._request('track.share', False, params)
 
-    def get_url(self, domain_name = DOMAIN_ENGLISH):
+    def get_url(self, domain_name=DOMAIN_ENGLISH):
         """Returns the url of the track page on the network.
         * domain_name: The network's language domain. Possible values:
           o DOMAIN_ENGLISH
@@ -2557,7 +2555,7 @@ class Track(_BaseObject, _Taggable):
         artist = _url_safe(self.get_artist().get_name())
         title = _url_safe(self.get_title())
 
-        return self.network._get_url(domain_name, "track") %{'domain': self.network._get_language_domain(domain_name), 'artist': artist, 'title': title}
+        return self.network._get_url(domain_name, "track") % {'domain': self.network._get_language_domain(domain_name), 'artist': artist, 'title': title}
 
     def get_shouts(self, limit=50):
         """
@@ -2566,13 +2564,11 @@ class Track(_BaseObject, _Taggable):
 
         shouts = []
         for node in _collect_nodes(limit, self, "track.getShouts", False):
-            shouts.append(Shout(
-                                _extract(node, "body"),
+            shouts.append(Shout(_extract(node, "body"),
                                 User(_extract(node, "author"), self.network),
-                                _extract(node, "date")
-                                )
-                            )
+                                _extract(node, "date")))
         return shouts
+
 
 class Group(_BaseObject):
     """A Last.fm group."""
@@ -2585,7 +2581,7 @@ class Group(_BaseObject):
         self.name = group_name
 
     def __repr__(self):
-        return "pylast.Group(%s, %s)" %(repr(self.name), repr(self.network))
+        return "pylast.Group(%s, %s)" % (repr(self.name), repr(self.network))
 
     @_string_output
     def __str__(self):
@@ -2611,11 +2607,11 @@ class Group(_BaseObject):
 
         seq = []
         for node in doc.getElementsByTagName("chart"):
-            seq.append( (node.getAttribute("from"), node.getAttribute("to")) )
+            seq.append((node.getAttribute("from"), node.getAttribute("to")))
 
         return seq
 
-    def get_weekly_artist_charts(self, from_date = None, to_date = None):
+    def get_weekly_artist_charts(self, from_date=None, to_date=None):
         """Returns the weekly artist charts for the week starting from the from_date value to the to_date value."""
 
         params = self._get_params()
@@ -2633,7 +2629,7 @@ class Group(_BaseObject):
 
         return seq
 
-    def get_weekly_album_charts(self, from_date = None, to_date = None):
+    def get_weekly_album_charts(self, from_date=None, to_date=None):
         """Returns the weekly album charts for the week starting from the from_date value to the to_date value."""
 
         params = self._get_params()
@@ -2651,7 +2647,7 @@ class Group(_BaseObject):
 
         return seq
 
-    def get_weekly_track_charts(self, from_date = None, to_date = None):
+    def get_weekly_track_charts(self, from_date=None, to_date=None):
         """Returns the weekly track charts for the week starting from the from_date value to the to_date value."""
 
         params = self._get_params()
@@ -2669,7 +2665,7 @@ class Group(_BaseObject):
 
         return seq
 
-    def get_url(self, domain_name = DOMAIN_ENGLISH):
+    def get_url(self, domain_name=DOMAIN_ENGLISH):
         """Returns the url of the group page on the network.
         * domain_name: The network's language domain. Possible values:
           o DOMAIN_ENGLISH
@@ -2688,7 +2684,7 @@ class Group(_BaseObject):
 
         name = _url_safe(self.get_name())
 
-        return self.network._get_url(domain_name, "group") %{'name': name}
+        return self.network._get_url(domain_name, "group") % {'name': name}
 
     def get_members(self, limit=50):
         """
@@ -2704,6 +2700,7 @@ class Group(_BaseObject):
             users.append(User(_extract(node, "name"), self.network))
 
         return users
+
 
 class XSPF(_BaseObject):
     "A Last.fm XSPF playlist."""
@@ -2747,6 +2744,7 @@ class XSPF(_BaseObject):
 
         return seq
 
+
 class User(_BaseObject):
     """A Last.fm user."""
 
@@ -2762,7 +2760,7 @@ class User(_BaseObject):
         self._recommended_artists_index = 0
 
     def __repr__(self):
-        return "pylast.User(%s, %s)" %(repr(self.name), repr(self.network))
+        return "pylast.User(%s, %s)" % (repr(self.name), repr(self.network))
 
     @_string_output
     def __str__(self):
@@ -2798,7 +2796,7 @@ class User(_BaseObject):
 
         return events
 
-    def get_friends(self, limit = 50):
+    def get_friends(self, limit=50):
         """Returns a list of the user's friends. """
 
         seq = []
@@ -2835,7 +2833,7 @@ class User(_BaseObject):
 
         return seq
 
-    def get_neighbours(self, limit = 50):
+    def get_neighbours(self, limit=50):
         """Returns a list of the user's friends."""
 
         params = self._get_params()
@@ -2893,8 +2891,7 @@ class User(_BaseObject):
 
         return Track(artist, title, self.network)
 
-
-    def get_recent_tracks(self, limit = 10):
+    def get_recent_tracks(self, limit=10):
         """Returns this user's played track as a sequence of PlayedTrack objects
         in reverse order of their playtime, all the way back to the first track.
 
@@ -2914,7 +2911,7 @@ class User(_BaseObject):
         for track in _collect_nodes(limit, self, "user.getRecentTracks", True, params):
 
             if track.hasAttribute('nowplaying'):
-                continue    #to prevent the now playing track from sneaking in here
+                continue    # to prevent the now playing track from sneaking in here
 
             title = _extract(track, "name")
             artist = _extract(track, "artist")
@@ -2975,13 +2972,13 @@ class User(_BaseObject):
         return _extract(doc, "subscriber") == "1"
 
     def get_playcount(self):
-        """Returns the user's playcount so far."""
+     """Returns the user's playcount so far."""
 
         doc = self._request("user.getInfo", True)
 
         return _number(_extract(doc, "playcount"))
 
-    def get_top_albums(self, period = PERIOD_OVERALL):
+    def get_top_albums(self, period=PERIOD_OVERALL):
         """Returns the top albums played by a user.
         * period: The period of time. Possible values:
           o PERIOD_OVERALL
@@ -3006,7 +3003,7 @@ class User(_BaseObject):
 
         return seq
 
-    def get_top_artists(self, period = PERIOD_OVERALL):
+    def get_top_artists(self, period=PERIOD_OVERALL):
         """Returns the top artists played by a user.
         * period: The period of time. Possible values:
           o PERIOD_OVERALL
@@ -3046,7 +3043,7 @@ class User(_BaseObject):
 
         return seq
 
-    def get_top_tracks(self, period = PERIOD_OVERALL):
+    def get_top_tracks(self, period=PERIOD_OVERALL):
         """Returns the top tracks played by a user.
         * period: The period of time. Possible values:
           o PERIOD_OVERALL
@@ -3078,11 +3075,11 @@ class User(_BaseObject):
 
         seq = []
         for node in doc.getElementsByTagName("chart"):
-            seq.append( (node.getAttribute("from"), node.getAttribute("to")) )
+            seq.append((node.getAttribute("from"), node.getAttribute("to")))
 
         return seq
 
-    def get_weekly_artist_charts(self, from_date = None, to_date = None):
+    def get_weekly_artist_charts(self, from_date=None, to_date=None):
         """Returns the weekly artist charts for the week starting from the from_date value to the to_date value."""
 
         params = self._get_params()
@@ -3100,7 +3097,7 @@ class User(_BaseObject):
 
         return seq
 
-    def get_weekly_album_charts(self, from_date = None, to_date = None):
+    def get_weekly_album_charts(self, from_date=None, to_date=None):
         """Returns the weekly album charts for the week starting from the from_date value to the to_date value."""
 
         params = self._get_params()
@@ -3118,7 +3115,7 @@ class User(_BaseObject):
 
         return seq
 
-    def get_weekly_track_charts(self, from_date = None, to_date = None):
+    def get_weekly_track_charts(self, from_date=None, to_date=None):
         """Returns the weekly track charts for the week starting from the from_date value to the to_date value."""
 
         params = self._get_params()
@@ -3136,7 +3133,7 @@ class User(_BaseObject):
 
         return seq
 
-    def compare_with_user(self, user, shared_artists_limit = None):
+    def compare_with_user(self, user, shared_artists_limit=None):
         """Compare this user with another Last.fm user.
         Returns a sequence (tasteometer_score, (shared_artist1, shared_artist2, ...))
         user: A User object or a username string/unicode object.
@@ -3174,7 +3171,7 @@ class User(_BaseObject):
 
         return _extract(doc, "image")
 
-    def get_url(self, domain_name = DOMAIN_ENGLISH):
+    def get_url(self, domain_name=DOMAIN_ENGLISH):
         """Returns the url of the user page on the network.
         * domain_name: The network's language domain. Possible values:
           o DOMAIN_ENGLISH
@@ -3193,7 +3190,7 @@ class User(_BaseObject):
 
         name = _url_safe(self.get_name())
 
-        return self.network._get_url(domain_name, "user") %{'name': name}
+        return self.network._get_url(domain_name, "user") % {'name': name}
 
     def get_library(self):
         """Returns the associated Library object. """
@@ -3207,12 +3204,9 @@ class User(_BaseObject):
 
         shouts = []
         for node in _collect_nodes(limit, self, "user.getShouts", False):
-            shouts.append(Shout(
-                                _extract(node, "body"),
+            shouts.append(Shout(_extract(node, "body"),
                                 User(_extract(node, "author"), self.network),
-                                _extract(node, "date")
-                                )
-                            )
+                                _extract(node, "date")))
         return shouts
 
     def shout(self, message):
@@ -3225,9 +3219,10 @@ class User(_BaseObject):
 
         self._request("user.Shout", False, params)
 
+
 class AuthenticatedUser(User):
     def __init__(self, network):
-        User.__init__(self, "", network);
+        User.__init__(self, "", network)
 
     def _get_params(self):
         return {"user": self.get_name()}
@@ -3263,6 +3258,7 @@ class AuthenticatedUser(User):
             seq.append(Artist(_extract(node, "name"), self.network))
 
         return seq
+
 
 class _Search(_BaseObject):
     """An abstract class. Use one of its derivatives."""
@@ -3303,6 +3299,7 @@ class _Search(_BaseObject):
         self._last_page_index += 1
         return self._retreive_page(self._last_page_index)
 
+
 class AlbumSearch(_Search):
     """Search for an album by name."""
 
@@ -3320,6 +3317,7 @@ class AlbumSearch(_Search):
             seq.append(Album(_extract(node, "artist"), _extract(node, "name"), self.network))
 
         return seq
+
 
 class ArtistSearch(_Search):
     """Search for an artist by artist name."""
@@ -3340,6 +3338,7 @@ class ArtistSearch(_Search):
 
         return seq
 
+
 class TagSearch(_Search):
     """Search for a tag by tag name."""
 
@@ -3359,6 +3358,7 @@ class TagSearch(_Search):
             seq.append(tag)
 
         return seq
+
 
 class TrackSearch(_Search):
     """Search for a track by track title. If you don't wanna narrow the results down
@@ -3381,6 +3381,7 @@ class TrackSearch(_Search):
 
         return seq
 
+
 class VenueSearch(_Search):
     """Search for a venue by its name. If you don't wanna narrow the results down
     by specifying a country, set it to empty string."""
@@ -3399,6 +3400,7 @@ class VenueSearch(_Search):
             seq.append(Venue(_extract(node, "id"), self.network))
 
         return seq
+
 
 class Venue(_BaseObject):
     """A venue where events are held."""

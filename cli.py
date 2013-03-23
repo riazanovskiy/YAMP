@@ -111,7 +111,7 @@ class YampShell(cmd.Cmd):
             album = args
             args = ''
         words = args.split()
-        if words[0].isdigit():
+        if words and words[0].isdigit():
             new = ' '.join(words[1:])
             print('new', new)
             if new in self.artists():
