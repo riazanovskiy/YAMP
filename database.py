@@ -53,7 +53,10 @@ class Database:
                                                                                 title=title)))
         if old_filename != filename:
             verify_dir(folder_name)
-            return (shutil.copy(old_filename, filename), old_filename)
+            if os.path.abspath(filename).startswith(os.path.abspath(self.path)):
+                return (shutil.move(old_filename, filename), old_filename)
+            else:
+                return (shutil.copy(old_filename, filename), old_filename)
 
     def move_files(self):
         cursor = self.sql.execute('select track, artist, album, title, filename from songs')
@@ -62,7 +65,7 @@ class Database:
             if not old_filename.startswith('NOFILE') and os.path.exists(old_filename):
                 moved = self.move_file(old_filename, track, artist, album, title)
                 if moved:
-                        moved_list.append(moved)
+                    moved_list.append(moved)
 
         print(len(moved_list), 'files moved.')
         if moved_list:
@@ -260,7 +263,8 @@ class Database:
         return improved
 
     def correct_album(self, album):
-        improved = self.online.generic('album', album)
+        logger.debug('in correct_album(' + str(album) + ')')
+        improved = self.online.generic('album', album).name
         if improved != album:
             print('REPLACING', album, 'WITH', improved)
             albums = self.sql.execute('select distinct album from songs').fetchall()
@@ -339,7 +343,7 @@ class Database:
             known_tracks = [(track, title, normalcase(title)) for track, title in known_tracks]
             if known_tracks:
                 known_tracks.sort()
-                min_tracks = known_tracks[-1][0]
+                min_tracks = max(known_tracks[-1][0], len(known_tracks))
                 tracknames = [i[2] for i in known_tracks]
         album = (self.online.album(onlinedata.BRAINZ, albumname, artist,
                                    tracknames, min_tracks)
