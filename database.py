@@ -46,14 +46,17 @@ class Database:
                          'ON songs(artist, title, album, filename)')
         self.songs_cache = {}
 
-    def move_file(self, old_filename, track, artist, album, title):
+    def move_file(self, old_filename, track, artist, album, title, force_move=False):
         folder_name = os.path.join(self.path, valid_filename(artist), valid_filename(album))
-        filename = os.path.join(folder_name,
-                                valid_filename('{track:0=2} {title}.mp3'.format(track=track,
-                                                                                title=title)))
+        filename = os.path.abspath(os.path.join(folder_name,
+                                                valid_filename('{track:0=2} {title}.mp3'.format(track=track,
+                                                                                                title=title))))
         if old_filename != filename:
             verify_dir(folder_name)
-            if os.path.abspath(filename).startswith(os.path.abspath(self.path)):
+            if force_move or os.path.abspath(old_filename).startswith(self.path):
+                logger.info('moving ' + str(old_filename) + ' to ' + filename)
+                if not force_move:
+                    logger.info('moving instead of copying because ' + filename + ' starts with ' + self.path)
                 return (shutil.move(old_filename, filename), old_filename)
             else:
                 return (shutil.copy(old_filename, filename), old_filename)
@@ -514,10 +517,9 @@ class Database:
             if not new_filename:
                 logger.debug('download of ' + title + ' failed, omitting')
                 continue
-            right_filename = self.move_file(new_filename, track, artist, album, title)[0]
+            right_filename = self.move_file(new_filename, track, artist, album, title, force_move=True)[0]
             self.sql.execute('update songs set filename=? where filename=?',
                              (right_filename, dummy_filename))
-            os.remove(new_filename)
             success += 1
         self.sql.commit()
         print(success, 'songs successfully downloaded')

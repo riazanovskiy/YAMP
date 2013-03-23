@@ -1316,6 +1316,7 @@ class Album(_BaseObject, _Taggable):
 
         return _extract(node, "content")
 
+
 class Artist(_BaseObject, _Taggable):
     """An artist."""
 

@@ -110,6 +110,16 @@ class YampShell(cmd.Cmd):
         elif args in self.albums():
             album = args
             args = ''
+        words = args.split()
+        if words[0].isdigit():
+            new = ' '.join(words[1:])
+            print('new', new)
+            if new in self.artists():
+                artist = new
+                args = words[0]
+            elif new in self.albums():
+                album = new
+                args = words[0]
 
         return (artist, album, args.strip())
 

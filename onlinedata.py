@@ -173,7 +173,8 @@ class OnlineData:
         try:
             output = search()
         except Exception as exc:
-            logger.info('Exception in search ' + str(exc))
+            logger.critical('Exception in search')
+            logger.exception(exc)
             return None
         if output:
             logger.info('got output')
@@ -199,15 +200,24 @@ class OnlineData:
 
     def _search_album(self, provider, title, artist='', tracks=[], min_tracks=0):
         logger.info('In _search_album(' + str(provider) + ', ' + str(title) + ', ' + str(artist) + ')')
-        RESULTS_TO_REVIEW = 10
-        search = [lambda: self.lastfm.search_for_album(title).get_next_page(),
+        RESULTS_TO_REVIEW = 5 if artist else 40
+
+        def searchlast():
+            if artist:
+                return [i.item for i in self.artist(LASTFM, artist)._link.get_top_albums()]
+            else:
+                search_results = self.lastfm.search_for_album(title)
+                return search_results.get_next_page() + search_results.get_next_page()
+        search = [lambda: searchlast(),
                   lambda: self.shark.getResultsFromSearch(title, 'Albums')['result'],
                   lambda: brainz.search_releases(title, artist=artist)['release-list']][provider]
         Album = [LastAlbum, SharkAlbum, BrainzAlbum][provider]
         output = None
         try:
             output = search()
-        except:
+        except Exception as exc:
+            logger.critical('Exception in search')
+            logger.exception(exc)
             return None
         if output:
             for i, result in zip(range(RESULTS_TO_REVIEW), output):
@@ -216,31 +226,39 @@ class OnlineData:
                 if artist and diff(album.artist, artist) > 0.5:
                     logger.info('Omitting because ' + str(album.artist) + ' != ' + str(artist))
                     continue
+                if diff(album.name, title) > 0.5:
+                    logger.info('Omitting because of title: ' + str(album.name))
+                    continue
                 if min_tracks and len(album.tracks()) < min_tracks:
-                    logger.info('Omitting because of min_tracks')
+                    logger.info('Omitting because of min_tracks: only ' + str(len(album.tracks())))
                     continue
                 if tracks:
                     album_tracks = [normalcase(i.name) for i in album.tracks()]
                     if any(known not in album_tracks for known in tracks):
                         logger.info('Omitting because track not found')
-                        logger.debug('fetched ' + repr(album_tracks) + '\n known' + repr(tracks))
-                        break
-                if diff(album.name, title) < 0.5:
-                    return album
-                else:
-                    logger.info('Omitting because of title')
+                        if False:
+                            logger.debug('fetched ' + repr(album_tracks) + '\n\n known ' + repr(tracks))
+                            for known in tracks:
+                                if known not in album_tracks:
+                                    logger.debug(known + ' not found in fetched')
+                        continue
+                return album
 
         return None
 
     def album(self, provider, title, artist='', tracks=[], min_tracks=0):
-        return (self._search_album(provider, title, artist, tracks, min_tracks)
-                or self._search_album(provider, strip_brackets(title),
-                                      strip_brackets(artist),
-                                      tracks, min_tracks))
+        if (artist and ('[' in artist or '(' in artist or ']' in artist or ')' in artist or
+           '[' in title or '(' in title or ']' in title or ')' in title)):
+            return (self._search_album(provider, title, artist, tracks, min_tracks)
+                    or self._search_album(provider, strip_brackets(title),
+                                          strip_brackets(artist),
+                                          tracks, min_tracks))
+        else:
+            return self._search_album(provider, title, artist, tracks, min_tracks)
 
     @lru_cache()
     def song(self, provider, title, artist=''):
-        RESULTS_TO_REVIEW = 2
+        RESULTS_TO_REVIEW = 4
         search = [lambda: self.lastfm.search_for_track(artist, title).get_next_page(),
                   lambda: self.shark.getResultsFromSearch(title, 'Songs')['result'],
                   lambda: brainz.search_recordings(title, artist=artist)['recording-list']][provider]
