@@ -154,27 +154,19 @@ class YampShell(cmd.Cmd):
 ############# show ########################################################################################
 
     def do_show(self, args):
-        args = args.strip()
-        if not args:
+        artist, album, args = self.parse_arguments(args)
+        if album is not None:
+            if album:
+                db.pretty_print(album=album)
+            else:
+                print('\n'.join(sorted(self.albums())))
+        elif artist is not None:
+            if artist:
+                db.pretty_print(artist=artist)
+            else:
+                print('\n'.join(sorted(self.artists())))
+        else:
             db.pretty_print()
-        elif args == '@':
-            print('\n'.join(sorted(self.artists())))
-            return
-        elif args == '#':
-            print('\n'.join(sorted(self.albums())))
-            return
-        elif args[0] == '@':
-            db.pretty_print(artist=args[1:])
-            return
-        elif args[0] == '#':
-            db.pretty_print(album=args[1:])
-            return
-        elif args in self.albums():
-            db.pretty_print(album=args)
-            return
-        elif args in self.artists():
-            db.pretty_print(artist=args)
-            return
 
     def help_show(self):
         print('show')
@@ -188,29 +180,21 @@ class YampShell(cmd.Cmd):
 ############# more ########################################################################################
 
     def do_more(self, args):
-        args = args.strip()
+        artist, album, args = self.parse_arguments(args)
 
-        if not args:
-            return
-        do_artist = bool(args[0] == '@' or args in self.artists())
-        do_album = bool(args[0] == '#' or args in self.albums())
-
-        if args[0] in '@#':
-            args = args[1:]
-
-        if do_album == do_artist:
-            do_album = False
-            do_artist = True
-
-        assert (do_artist != do_album)
-
-        if do_album:
-            artist = db.get_artist_of_album(args)
-            print('Fetching more songs from album', args, 'by', artist)
-            db.fill_album(artist, args)
-        else:
+        if album:
+            if not artist:
+                artist = db.get_artist_of_album(album)
+            print('Fetching more songs from album', album, 'by', artist)
+            db.fill_album(artist, album)
+        elif artist:
+            print('Fetching more songs by', artist)
+            db.fetch_tracks_for_artist(artist)
+        elif args:
             print('Fetching more songs by', args)
             db.fetch_tracks_for_artist(args)
+        else:
+            return
         self._artists = []
         self._albums = []
 
@@ -275,8 +259,9 @@ class YampShell(cmd.Cmd):
 ############# EOF ########################################################################################
 
     def do_EOF(self, args):
-        db.writeout()
         print()
+        print('Saving your changes...')
+        db.writeout()
         print('Exiting')
         return True
 

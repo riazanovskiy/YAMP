@@ -159,12 +159,12 @@ class OnlineData:
         else:
             global GROOVESHARK
             GROOVESHARK = BRAINZ
-        brainz.set_useragent('HAT', '1.7.1', 'http://vk.com')
+        brainz.set_useragent('Kaganov"s Player', '1.00', 'http://lleo.me')
 
     @lru_cache()
     def _search_artist(self, provider, known):
         logger.info('In _search_artist(' + str(provider) + ', ' + known + ') ')
-        RESULTS_TO_REVIEW = 1
+        RESULTS_TO_REVIEW = 3
         search = [lambda: self.lastfm.search_for_artist(known).get_next_page(),
                   lambda: self.shark.getResultsFromSearch(known, 'Artists')['result'],
                   lambda: brainz.search_artists(known)['artist-list']][provider]
@@ -180,8 +180,8 @@ class OnlineData:
             for i, result in enumerate(output):
                 if i == RESULTS_TO_REVIEW:
                     break
-                logger.info('Got artist result')
                 artist = Artist(result)
+                logger.info('Got artist result ' + str(artist.name))
                 if (diff(artist.name, known) < 0.5 or (provider == BRAINZ
                                                        and 'alias-list' in result
                                                        and known in result['alias-list'])):
@@ -210,9 +210,7 @@ class OnlineData:
         except:
             return None
         if output:
-            for i, result in enumerate(output):
-                if i == RESULTS_TO_REVIEW:
-                    break
+            for i, result in zip(range(RESULTS_TO_REVIEW), output):
                 logger.info('Album: attempt #' + str(i + 1))
                 album = Album(result)
                 if artist and diff(album.artist, artist) > 0.5:

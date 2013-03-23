@@ -40,7 +40,7 @@ from stagger.frames import *
 from stagger.specs import *
 from stagger.tags import frameclass
 
-
+
 # ID3v2.4
 
 # 4.2.1. Identification frames
@@ -89,7 +89,7 @@ class TSST(TextFrame):
 class TSRC(TextFrame):
     "ISRC (international standard recording code)"
 
-
+
 # 4.2.2. Involved persons frames
 @frameclass
 class TPE1(TextFrame):
@@ -132,7 +132,7 @@ class TIPL(CreditsFrame):
 class TENC(TextFrame): "Encoded by"
 
 
-
+
 # 4.2.3. Derived and subjective properties frames
 
 @frameclass
@@ -168,7 +168,7 @@ class TMOO(TextFrame):
     "Mood"
     _version = 4
 
-
+
 # 4.2.4. Rights and license frames
 
 @frameclass
@@ -188,7 +188,7 @@ class TRSN(TextFrame): "Internet radio station name"
 class TRSO(TextFrame): "Internet radio station owner"
 
 
-
+
 # 4.2.5. Other text frames
 
 @frameclass
@@ -246,7 +246,7 @@ class TSOT(TextFrame):
     "Title sort order"
     _version = 4
 
-
+
 # 4.2.6. User defined information frame
 
 @frameclass
@@ -257,7 +257,7 @@ class TXXX(Frame):
                   EncodedStringSpec("value"))
     _allow_duplicates = True
 
-
+
 # 4.3. URL link frames
 
 @frameclass
@@ -302,7 +302,7 @@ class WXXX(Frame):
                   URLStringSpec("url"))
     _allow_duplicates = True
 
-
+
 # 4.4.-4.13  Junk frames
 @frameclass
 class MCDI(Frame):

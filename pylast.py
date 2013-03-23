@@ -372,7 +372,7 @@ class _Network(object):
     def is_caching_enabled(self):
         """Returns True if caching is enabled."""
 
-        return not (self.cache_backend == None)
+        return (self.cache_backend is not None)
 
     def _get_cache_backend(self):
 
@@ -438,7 +438,7 @@ class _Network(object):
         return Album(_extract(doc, "artist"), _extract(doc, "name"), self)
 
     def update_now_playing(self, artist, title, album=None, album_artist=None,
-            duration=None, track_number=None, mbid=None, context=None):
+                           duration=None, track_number=None, mbid=None, context=None):
         """
             Used to notify Last.fm that a user has started listening to a track.
 
@@ -465,7 +465,7 @@ class _Network(object):
         _Request(self, "track.updateNowPlaying", params).execute()
 
     def scrobble(self, artist, title, timestamp, album=None, album_artist=None, track_number=None,
-        duration=None, stream_id=None, context=None, mbid=None):
+                 duration=None, stream_id=None, context=None, mbid=None):
 
         """Used to add a track-play to a user's profile.
 
@@ -543,44 +543,39 @@ class LastFMNetwork(_Network):
 
     def __init__(self, api_key="", api_secret="", session_key="", username="", password_hash=""):
         _Network.__init__(self,
-            name = "Last.fm",
-                    homepage = "http://last.fm",
-                    ws_server = ("ws.audioscrobbler.com", "/2.0/"),
-                    api_key = api_key,
-                    api_secret = api_secret,
-                    session_key = session_key,
-                    submission_server = "http://post.audioscrobbler.com:80/",
-                    username = username,
-                    password_hash = password_hash,
-                    domain_names = {
-                        DOMAIN_ENGLISH: 'www.last.fm',
-                        DOMAIN_GERMAN: 'www.lastfm.de',
-                        DOMAIN_SPANISH: 'www.lastfm.es',
-                        DOMAIN_FRENCH: 'www.lastfm.fr',
-                        DOMAIN_ITALIAN: 'www.lastfm.it',
-                        DOMAIN_POLISH: 'www.lastfm.pl',
-                        DOMAIN_PORTUGUESE: 'www.lastfm.com.br',
-                        DOMAIN_SWEDISH: 'www.lastfm.se',
-                        DOMAIN_TURKISH: 'www.lastfm.com.tr',
-                        DOMAIN_RUSSIAN: 'www.lastfm.ru',
-                        DOMAIN_JAPANESE: 'www.lastfm.jp',
-                        DOMAIN_CHINESE: 'cn.last.fm',
-                        },
-                    urls = {
-                        "album": "music/%(artist)s/%(album)s",
-                        "artist": "music/%(artist)s",
-                        "event": "event/%(id)s",
-                        "country": "place/%(country_name)s",
-                        "playlist": "user/%(user)s/library/playlists/%(appendix)s",
-                        "tag": "tag/%(name)s",
-                        "track": "music/%(artist)s/_/%(title)s",
-                        "group": "group/%(name)s",
-                        "user": "user/%(name)s",
-                        }
-                )
+                          name="Last.fm",
+                          homepage="http://last.fm",
+                          ws_server=("ws.audioscrobbler.com", "/2.0/"),
+                          api_key=api_key,
+                          api_secret=api_secret,
+                          session_key=session_key,
+                          submission_server="http://post.audioscrobbler.com:80/",
+                          username=username,
+                          password_hash=password_hash,
+                          domain_names={DOMAIN_ENGLISH: 'www.last.fm',
+                                        DOMAIN_GERMAN: 'www.lastfm.de',
+                                        DOMAIN_SPANISH: 'www.lastfm.es',
+                                        DOMAIN_FRENCH: 'www.lastfm.fr',
+                                        DOMAIN_ITALIAN: 'www.lastfm.it',
+                                        DOMAIN_POLISH: 'www.lastfm.pl',
+                                        DOMAIN_PORTUGUESE: 'www.lastfm.com.br',
+                                        DOMAIN_SWEDISH: 'www.lastfm.se',
+                                        DOMAIN_TURKISH: 'www.lastfm.com.tr',
+                                        DOMAIN_RUSSIAN: 'www.lastfm.ru',
+                                        DOMAIN_JAPANESE: 'www.lastfm.jp',
+                                        DOMAIN_CHINESE: 'cn.last.fm'},
+                          urls = {"album": "music/%(artist)s/%(album)s",
+                                  "artist": "music/%(artist)s",
+                                  "event": "event/%(id)s",
+                                  "country": "place/%(country_name)s",
+                                  "playlist": "user/%(user)s/library/playlists/%(appendix)s",
+                                  "tag": "tag/%(name)s",
+                                  "track": "music/%(artist)s/_/%(title)s",
+                                  "group": "group/%(name)s",
+                                  "user": "user/%(name)s"})
 
     def __repr__(self):
-        return "pylast.LastFMNetwork(%s)" % (", ".join(("'%s'" %self.api_key, "'%s'" %self.api_secret, "'%s'" %self.session_key,
+        return "pylast.LastFMNetwork(%s)" % (", ".join(("'%s'" % self.api_key, "'%s'" % self.api_secret, "'%s'" % self.session_key,
             "'%s'" %self.username, "'%s'" % self.password_hash)))
 
     def __str__(self):

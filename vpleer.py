@@ -37,7 +37,7 @@ def download(artist, title, limit=0):
         result = re.search("audio{}.*?oncli.*?play.*?'([^\\']*?)'.*?<span class=\"ausong\">\\s*<b>\\s*([^<]+)\\s*</b>\\s*</span>.*?<span class=\"auname\">([^<]+)</span>".format(i), data, re.DOTALL)
         if result:
             url, vartist, vtitle = result.groups()
-            if (diff(artist, vartist) < 0.3 and diff(title, vtitle) < 0.3):
+            if diff(artist, vartist) < 0.3 and diff(title, vtitle) < 0.3:
                 url = 'http://vpleer.ru' + url.replace('&amp;', '&')
                 while url[-1] == '\\':
                     url = url[:-1]
@@ -57,12 +57,13 @@ def download(artist, title, limit=0):
     raise NotFoundOnline()
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         sys.argv.append('paolo conte')
+        sys.argv.append('Via Con Me')
         sys.argv.append('test__.mp3')
     elif len(sys.argv) != 3:
         print('Enter your search query and output filename')
         exit(1)
-    output = open(sys.argv[2], 'wb')
-    output.write(download(sys.argv[1]).read())
+    output = open(sys.argv[3], 'wb')
+    output.write(download(sys.argv[1], sys.argv[2]))
     output.close()

@@ -12,7 +12,7 @@ class TestDownloadGrooveshark(unittest.TestCase):
     def setUp(self):
         grooveshark.setup_connection()
 
-    @for_examples(*songslist[:2])
+    @for_examples(*songslist)
     def test_download(self, artist, title):
         exc = None
         try:

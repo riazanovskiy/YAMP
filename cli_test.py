@@ -19,7 +19,12 @@ class TestCli(unittest.TestCase):
                     ('#Pink', (None, 'Pink', '')),
                     ('@Pink', ('Pink', None, '')),
                     ('@Pink #Floyd', ('Pink', 'Floyd', '')),
-                    ('2312 @Pink #Floyd', ('Pink', 'Floyd', '2312'))]
+                    ('2312 @Pink #Floyd', ('Pink', 'Floyd', '2312')),
+                    ('#', (None, '', '')),
+                    ('@', ('', None, '')),
+                    ('   # @  ', ('', '', '')),
+                    ('@    #', ('', '', '')),
+                    ('1 #  @  ', ('', '', '1'))]
 
         for inp, out in examples:
             self.assertTupleEqual(out, self.shell.parse_arguments(inp))
