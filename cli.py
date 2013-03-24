@@ -114,7 +114,6 @@ class YampShell(cmd.Cmd):
         words = args.split()
         if words and words[0].isdigit():
             new = ' '.join(words[1:])
-            print('new', new)
             if new in self.artists():
                 artist = new
                 args = words[0]
@@ -222,6 +221,11 @@ class YampShell(cmd.Cmd):
 
     def do_correct(self, args):
         artist, album, args = self.parse_arguments(args)
+        if album:
+            album = db.correct_album(album)
+            if not artist:
+                artist = db.get_artist_of_album(album)
+            db.fill_album(artist, album, only_correct=True)
         if artist:
             db.correct_artist(artist, force=True)
         self._albums = []

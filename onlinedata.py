@@ -178,14 +178,12 @@ class OnlineData:
             return None
         if output:
             logger.info('got output')
-            for i, result in enumerate(output):
-                if i == RESULTS_TO_REVIEW:
-                    break
+            for i, result in zip(range(RESULTS_TO_REVIEW), output):
                 artist = Artist(result)
                 logger.info('Got artist result ' + str(artist.name))
                 if (diff(artist.name, known) < 0.3 or (provider == BRAINZ
                                                        and 'alias-list' in result
-                                                       and known in result['alias-list'])):
+                                                       and any(diff(alist, known) < 0.25 for alist in result['alias-list']))):
                     return artist
                 else:
                     logger.info(artist.name + ' differs from ' + known)
@@ -247,11 +245,11 @@ class OnlineData:
         return None
 
     def album(self, provider, title, artist='', tracks=[], min_tracks=0):
-        if (artist and ('[' in artist or '(' in artist or ']' in artist or ')' in artist or
-           '[' in title or '(' in title or ']' in title or ')' in title)):
+        if ((artist and ('[' in artist or '(' in artist or ']' in artist or ')' in artist)) or
+           '[' in title or '(' in title or ']' in title or ')' in title):
             return (self._search_album(provider, title, artist, tracks, min_tracks)
                     or self._search_album(provider, strip_brackets(title),
-                                          strip_brackets(artist),
+                                          strip_brackets(artist) if artist else '',
                                           tracks, min_tracks))
         else:
             return self._search_album(provider, title, artist, tracks, min_tracks)
@@ -269,9 +267,7 @@ class OnlineData:
         except:
             return None
         if output:
-            for i, result in enumerate(output):
-                if i == RESULTS_TO_REVIEW:
-                    break
+            for i, result in zip(range(RESULTS_TO_REVIEW), output):
                 song = Song(result)
                 if artist and diff(song.artist, artist) > 0.4:
                     continue
