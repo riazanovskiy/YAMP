@@ -659,13 +659,14 @@ class LibreFMNetwork(_Network):
                     )
 
     def __repr__(self):
-        return "pylast.LibreFMNetwork(%s)" %(", ".join(("'%s'" %self.api_key, "'%s'" %self.api_secret, "'%s'" %self.session_key,
-            "'%s'" %self.username, "'%s'" %self.password_hash)))
+        return "pylast.LibreFMNetwork(%s)" % (", ".join(("'%s'" % self.api_key, "'%s'" % self.api_secret, "'%s'" % self.session_key,
+                                                         "'%s'" % self.username, "'%s'" % self.password_hash)))
 
     def __str__(self):
         return "Libre.fm Network"
 
-def get_librefm_network(api_key="", api_secret="", session_key = "", username = "", password_hash = ""):
+
+def get_librefm_network(api_key="", api_secret="", session_key ="", username="", password_hash=""):
     """
     Returns a preconfigured _Network object for Libre.fm
 
@@ -683,9 +684,10 @@ def get_librefm_network(api_key="", api_secret="", session_key = "", username = 
 
     return LibreFMNetwork(api_key, api_secret, session_key, username, password_hash)
 
+
 class _ShelfCacheBackend(object):
     """Used as a backend for caching cacheable requests."""
-    def __init__(self, file_path = None):
+    def __init__(self, file_path=None):
         self.shelf = shelve.open(file_path)
 
     def get_xml(self, key):
@@ -697,10 +699,11 @@ class _ShelfCacheBackend(object):
     def has_key(self, key):
         return key in self.shelf.keys()
 
+
 class _Request(object):
     """Representing an abstract web service operation."""
 
-    def __init__(self, network, method_name, params = {}):
+    def __init__(self, network, method_name, params={}):
 
         self.network = network
         self.params = {}
@@ -769,7 +772,7 @@ class _Request(object):
     def _is_cached(self):
         """Returns True if the request is already in cache."""
 
-        return self.cache.has_key(self._get_cache_key())
+        return self._get_cache_key() in self.cache
 
     def _download_response(self):
         """Returns a response body string from the server."""
@@ -782,20 +785,18 @@ class _Request(object):
             data.append('='.join((name, url_quote_plus(_string(self.params[name])))))
         data = '&'.join(data)
 
-        headers = {
-            "Content-type": "application/x-www-form-urlencoded",
-            'Accept-Charset': 'utf-8',
-            'User-Agent': "pylast" + '/' + __version__
-            }
+        headers = {"Content-type": "application/x-www-form-urlencoded",
+                   'Accept-Charset': 'utf-8',
+                   'User-Agent': "pylast" + '/' + __version__}
 
         (HOST_NAME, HOST_SUBDIR) = self.network.ws_server
 
         if self.network.is_proxy_enabled():
-            conn = HTTPConnection(host = self._get_proxy()[0], port = self._get_proxy()[1])
+            conn = HTTPConnection(host=self._get_proxy()[0], port=self._get_proxy()[1])
 
             try:
                 conn.request(method='POST', url="http://" + HOST_NAME + HOST_SUBDIR,
-                    body=data, headers=headers)
+                             body=data, headers=headers)
             except Exception as e:
                 raise NetworkError(self.network, e)
 
@@ -815,7 +816,7 @@ class _Request(object):
         self._check_response_for_errors(response_text)
         return response_text
 
-    def execute(self, cacheable = False):
+    def execute(self, cacheable=False):
         """Returns the XML DOM response of the POST Request from the server"""
 
         if self.network.is_caching_enabled() and cacheable:
@@ -840,6 +841,7 @@ class _Request(object):
             status = e.getAttribute('code')
             details = e.firstChild.data.strip()
             raise WSError(self.network, status, details)
+
 
 class SessionKeyGenerator(object):
     """Methods of generating a session key:
@@ -900,7 +902,7 @@ class SessionKeyGenerator(object):
         if url in self.web_auth_tokens.keys():
             token = self.web_auth_tokens[url]
         else:
-            token = ""    #that's gonna raise a WSError of an unauthorized token when the request is executed.
+            token = ""    # that's gonna raise a WSError of an unauthorized token when the request is executed.
 
         request = _Request(self.network, 'auth.getSession', {'token': token})
 
@@ -935,13 +937,15 @@ ImageSizes = collections.namedtuple("ImageSizes", ["original", "large", "largesq
 Image = collections.namedtuple("Image", ["title", "url", "dateadded", "format", "owner", "sizes", "votes"])
 Shout = collections.namedtuple("Shout", ["body", "author", "date"])
 
+
 def _string_output(funct):
     def r(*args):
         return _string(funct(*args))
 
     return r
 
-def _pad_list(given_list, desired_length, padding = None):
+
+def _pad_list(given_list, desired_length, padding=None):
     """
         Pads a list to be of the desired_length.
     """
@@ -951,6 +955,7 @@ def _pad_list(given_list, desired_length, padding = None):
 
     return given_list
 
+
 class _BaseObject(object):
     """An abstract webservices object."""
 
@@ -959,7 +964,7 @@ class _BaseObject(object):
     def __init__(self, network):
         self.network = network
 
-    def _request(self, method_name, cacheable = False, params = None):
+    def _request(self, method_name, cacheable=False, params=None):
         if not params:
             params = self._get_params()
 
@@ -971,8 +976,9 @@ class _BaseObject(object):
         return {}
 
     def __hash__(self):
-        return hash(self.network) + \
-            hash(str(type(self)) + "".join(list(self._get_params().keys()) + list(self._get_params().values())).lower())
+        return (hash(self.network) + hash(str(type(self)) +
+                "".join(list(self._get_params().keys()) + list(self._get_params().values())).lower()))
+
 
 class _Taggable(object):
     """Common functions for classes with tags."""
@@ -1092,6 +1098,7 @@ class _Taggable(object):
 
         return seq
 
+
 class WSError(Exception):
     """Exception related to the Network web service"""
 
@@ -1123,6 +1130,7 @@ class WSError(Exception):
 
         return self.status
 
+
 class MalformedResponseError(Exception):
     """Exception conveying a malformed response from Last.fm."""
 
@@ -1131,7 +1139,8 @@ class MalformedResponseError(Exception):
         self.underlying_error = underlying_error
 
     def __str__(self):
-        return "Malformed response from Last.fm. Underlying error: %s" %str(self.underlying_error)
+        return "Malformed response from Last.fm. Underlying error: %s" % str(self.underlying_error)
+
 
 class NetworkError(Exception):
     """Exception conveying a problem in sending a request to Last.fm"""
@@ -1141,7 +1150,8 @@ class NetworkError(Exception):
         self.underlying_error = underlying_error
 
     def __str__(self):
-        return "NetworkError: %s" %str(self.underlying_error)
+        return "NetworkError: %s" % str(self.underlying_error)
+
 
 class Album(_BaseObject, _Taggable):
     """An album."""
@@ -1168,11 +1178,11 @@ class Album(_BaseObject, _Taggable):
         self.title = title
 
     def __repr__(self):
-        return "pylast.Album(%s, %s, %s)" %(repr(self.artist.name), repr(self.title), repr(self.network))
+        return "pylast.Album(%s, %s, %s)" % (repr(self.artist.name), repr(self.title), repr(self.network))
 
     @_string_output
     def __str__(self):
-        return _unicode("%s - %s") %(self.get_artist().get_name(), self.get_title())
+        return _unicode("%s - %s") % (self.get_artist().get_name(), self.get_title())
 
     def __eq__(self, other):
         return (self.get_title().lower() == other.get_title().lower()) and (self.get_artist().get_name().lower() == other.get_artist().get_name().lower())
@@ -1201,9 +1211,9 @@ class Album(_BaseObject, _Taggable):
     def get_release_date(self):
         """Retruns the release date of the album."""
 
-        return _extract(self._request("album.getInfo", cacheable = True), "releasedate")
+        return _extract(self._request("album.getInfo", cacheable=True), "releasedate")
 
-    def get_cover_image(self, size = COVER_EXTRA_LARGE):
+    def get_cover_image(self, size=COVER_EXTRA_LARGE):
         """
         Returns a uri to the cover image
         size can be one of:
@@ -1213,22 +1223,22 @@ class Album(_BaseObject, _Taggable):
             COVER_SMALL
         """
 
-        return _extract_all(self._request("album.getInfo", cacheable = True), 'image')[size]
+        return _extract_all(self._request("album.getInfo", cacheable=True), 'image')[size]
 
     def get_id(self):
         """Returns the ID"""
 
-        return _extract(self._request("album.getInfo", cacheable = True), "id")
+        return _extract(self._request("album.getInfo", cacheable=True), "id")
 
     def get_playcount(self):
         """Returns the number of plays on the network"""
 
-        return _number(_extract(self._request("album.getInfo", cacheable = True), "playcount"))
+        return _number(_extract(self._request("album.getInfo", cacheable=True), "playcount"))
 
     def get_listener_count(self):
         """Returns the number of liteners on the network"""
 
-        return _number(_extract(self._request("album.getInfo", cacheable = True), "listeners"))
+        return _number(_extract(self._request("album.getInfo", cacheable=True), "listeners"))
 
     def get_top_tags(self, limit=None):
         """Returns a list of the most-applied tags to this album."""
@@ -1248,16 +1258,16 @@ class Album(_BaseObject, _Taggable):
     def get_tracks(self):
         """Returns the list of Tracks on this album."""
 
-        uri = 'lastfm://playlist/album/%s' %self.get_id()
+        uri = 'lastfm://playlist/album/%s' % self.get_id()
 
         return XSPF(uri, self.network).get_tracks()
 
     def get_mbid(self):
         """Returns the MusicBrainz id of the album."""
 
-        return _extract(self._request("album.getInfo", cacheable = True), "mbid")
+        return _extract(self._request("album.getInfo", cacheable=True), "mbid")
 
-    def get_url(self, domain_name = DOMAIN_ENGLISH):
+    def get_url(self, domain_name=DOMAIN_ENGLISH):
         """Returns the url of the album page on the network.
         # Parameters:
         * domain_name str: The network's language domain. Possible values:
@@ -1278,7 +1288,7 @@ class Album(_BaseObject, _Taggable):
         artist = _url_safe(self.get_artist().get_name())
         album = _url_safe(self.get_title())
 
-        return self.network._get_url(domain_name, "album") %{'artist': artist, 'album': album}
+        return self.network._get_url(domain_name, "album") % {'artist': artist, 'album': album}
 
     def get_wiki_published_date(self):
         """Returns the date of publishing this version of the wiki."""
@@ -1334,7 +1344,7 @@ class Artist(_BaseObject, _Taggable):
         self.name = name
 
     def __repr__(self):
-        return "pylast.Artist(%s, %s)" %(repr(self.get_name()), repr(self.network))
+        return "pylast.Artist(%s, %s)" % (repr(self.get_name()), repr(self.network))
 
     @_string_output
     def __str__(self):
@@ -1581,16 +1591,13 @@ class Artist(_BaseObject, _Taggable):
             else:
                 user = None
 
-            images.append(Image(
-                            _extract(e, "title"),
-                            _extract(e, "url"),
-                            _extract(e, "dateadded"),
-                            _extract(e, "format"),
-                            user,
-                            ImageSizes(*_extract_all(e, "size")),
-                            (_extract(e, "thumbsup"), _extract(e, "thumbsdown"))
-                            )
-                        )
+            images.append(Image(_extract(e, "title"),
+                                _extract(e, "url"),
+                                _extract(e, "dateadded"),
+                                _extract(e, "format"),
+                                user,
+                                ImageSizes(*_extract_all(e, "size")),
+                                (_extract(e, "thumbsup"), _extract(e, "thumbsdown"))))
         return images
 
     def get_shouts(self, limit=50):
@@ -1600,12 +1607,9 @@ class Artist(_BaseObject, _Taggable):
 
         shouts = []
         for node in _collect_nodes(limit, self, "artist.getShouts", False):
-            shouts.append(Shout(
-                                _extract(node, "body"),
+            shouts.append(Shout(_extract(node, "body"),
                                 User(_extract(node, "author"), self.network),
-                                _extract(node, "date")
-                                )
-                            )
+                                _extract(node, "date")))
         return shouts
 
     def shout(self, message):
@@ -3415,7 +3419,7 @@ class Venue(_BaseObject):
         self.id = _number(id)
 
     def __repr__(self):
-        return "pylast.Venue(%s, %s)" %(repr(self.id), repr(self.network))
+        return "pylast.Venue(%s, %s)" % (repr(self.id), repr(self.network))
 
     @_string_output
     def __str__(self):
@@ -3481,6 +3485,7 @@ def _unicode(text):
         else:
             return unicode(text)
 
+
 def _string(text):
     """For Python2 routines that can only process str type."""
 
@@ -3498,6 +3503,7 @@ def _string(text):
             return str(text)
 
         return text.encode("utf-8")
+
 
 def _collect_nodes(limit, sender, method_name, cacheable, params=None):
     """
@@ -3536,7 +3542,8 @@ def _collect_nodes(limit, sender, method_name, cacheable, params=None):
 
     return nodes
 
-def _extract(node, name, index = 0):
+
+def _extract(node, name, index=0):
     """Extracts a value from the xml string"""
 
     nodes = node.getElementsByTagName(name)
@@ -3547,7 +3554,8 @@ def _extract(node, name, index = 0):
     else:
         return None
 
-def _extract_all(node, name, limit_count = None):
+
+def _extract_all(node, name, limit_count=None):
     """Extracts all the values from the xml string. returning a list."""
 
     seq = []
@@ -3560,10 +3568,12 @@ def _extract_all(node, name, limit_count = None):
 
     return seq
 
+
 def _url_safe(text):
     """Does all kinds of tricks on a text to make it safe to use in a url."""
 
     return url_quote_plus(url_quote_plus(_string(text))).lower()
+
 
 def _number(string):
     """
@@ -3580,15 +3590,17 @@ def _number(string):
         except ValueError:
             return float(string)
 
+
 def _unescape_htmlentity(string):
 
     #string = _unicode(string)
 
     mapping = htmlentitydefs.name2codepoint
     for key in mapping:
-        string = string.replace("&%s;" %key, unichr(mapping[key]))
+        string = string.replace("&%s;" % key, unichr(mapping[key]))
 
     return string
+
 
 def extract_items(topitems_or_libraryitems):
     """Extracts a sequence of items from a sequence of TopItem or LibraryItem objects."""
@@ -3599,6 +3611,7 @@ def extract_items(topitems_or_libraryitems):
 
     return seq
 
+
 class ScrobblingError(Exception):
     def __init__(self, message):
         Exception.__init__(self)
@@ -3608,21 +3621,26 @@ class ScrobblingError(Exception):
     def __str__(self):
         return self.message
 
+
 class BannedClientError(ScrobblingError):
     def __init__(self):
         ScrobblingError.__init__(self, "This version of the client has been banned")
+
 
 class BadAuthenticationError(ScrobblingError):
     def __init__(self):
         ScrobblingError.__init__(self, "Bad authentication token")
 
+
 class BadTimeError(ScrobblingError):
     def __init__(self):
         ScrobblingError.__init__(self, "Time provided is not close enough to current time")
 
+
 class BadSessionError(ScrobblingError):
     def __init__(self):
         ScrobblingError.__init__(self, "Bad session id, consider re-handshaking")
+
 
 class _ScrobblerRequest(object):
 
@@ -3647,15 +3665,13 @@ class _ScrobblerRequest(object):
             data.append('='.join((name, value)))
         data = "&".join(data)
 
-        headers = {
-            "Content-type": "application/x-www-form-urlencoded",
-            "Accept-Charset": "utf-8",
-            "User-Agent": "pylast" + "/" + __version__,
-            "HOST": self.hostname
-            }
+        headers = {"Content-type": "application/x-www-form-urlencoded",
+                   "Accept-Charset": "utf-8",
+                   "User-Agent": "pylast" + "/" + __version__,
+                   "HOST": self.hostname}
 
         if self.type == "GET":
-            connection.request("GET", self.subdir + "?" + data, headers = headers)
+            connection.request("GET", self.subdir + "?" + data, headers=headers)
         else:
             connection.request("POST", self.subdir, data, headers)
         response = _unicode(connection.getresponse().read())
@@ -3685,6 +3701,7 @@ class _ScrobblerRequest(object):
             reason = status_line[status_line.find("FAILED ")+len("FAILED "):]
             raise ScrobblingError(reason)
 
+
 class Scrobbler(object):
     """A class for scrobbling tracks to Last.fm"""
 
@@ -3712,8 +3729,8 @@ class Scrobbler(object):
             token = md5(self.network.api_secret + timestamp)
 
         params = {"hs": "true", "p": "1.2.1", "c": self.client_id,
-            "v": self.client_version, "u": self.username, "t": timestamp,
-            "a": token}
+                  "v": self.client_version, "u": self.username, "t": timestamp,
+                  "a": token}
 
         if self.network.session_key and self.network.api_key:
             params["sk"] = self.network.session_key
@@ -3726,7 +3743,7 @@ class Scrobbler(object):
         self.nowplaying_url = response[2]
         self.submissions_url = response[3]
 
-    def _get_session_id(self, new = False):
+    def _get_session_id(self, new=False):
         """Returns a handshake. If new is true, then it will be requested from the server
         even if one was cached."""
 
@@ -3735,12 +3752,12 @@ class Scrobbler(object):
 
         return self.session_id
 
-    def report_now_playing(self, artist, title, album = "", duration = "", track_number = "", mbid = ""):
+    def report_now_playing(self, artist, title, album="", duration="", track_number="", mbid=""):
 
         _deprecation_warning("DeprecationWarning: Use Netowrk.update_now_playing(...) instead")
 
         params = {"s": self._get_session_id(), "a": artist, "t": title,
-            "b": album, "l": duration, "n": track_number, "m": mbid}
+                  "b": album, "l": duration, "n": track_number, "m": mbid}
 
         try:
             _ScrobblerRequest(self.nowplaying_url, params, self.network).execute()
@@ -3773,8 +3790,8 @@ class Scrobbler(object):
         _deprecation_warning("DeprecationWarning: Use Network.scrobble(...) instead")
 
         params = {"s": self._get_session_id(), "a[0]": _string(artist), "t[0]": _string(title),
-            "i[0]": str(time_started), "o[0]": source, "r[0]": mode, "l[0]": str(duration),
-            "b[0]": _string(album), "n[0]": track_number, "m[0]": mbid}
+                  "i[0]": str(time_started), "o[0]": source, "r[0]": mode, "l[0]": str(duration),
+                  "b[0]": _string(album), "n[0]": track_number, "m[0]": mbid}
 
         _ScrobblerRequest(self.submissions_url, params, self.network).execute()
 

@@ -325,15 +325,15 @@ class Database:
             print('0 songs added')
             return
         cursor = self.sql.execute('select title from songs where artist=?', (artist,))
-        known_tracks = {i for i, in cursor}
+        known_tracks = {normalcase(i) for i, in cursor}
 
         suggestions = []
         fetched_artist = self.online.artist(onlinedata.LASTFM, artist)
         suggestions += fetched_artist.tracks() if fetched_artist else []
         fetched_artist = self.online.artist(onlinedata.GROOVESHARK, artist)
         suggestions += fetched_artist.tracks() if fetched_artist else []
-        suggestions = [i for i in suggestions if i.name not in known_tracks]
-        suggestions = [i for i in suggestions if not any(j in i.name for j in known_tracks) and i.album]
+        suggestions = [i for i in suggestions if normalcase(i.name) not in known_tracks]
+        suggestions = [i for i in suggestions if not any(j in normalcase(i.name) for j in known_tracks) and i.album]
 
         for song in suggestions[:count]:
             self.sql.execute('insert or ignore into songs'
