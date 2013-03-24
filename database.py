@@ -35,7 +35,7 @@ class Database:
                          ' artist text, album text, title text, bitrate int,'
                          ' duration int, filename text unique,'
                          ' has_file boolean, '
-                         ' actual boolean,'
+                         ' actual boolean default 0,'
                          # ' mbid text, '
                          ' artist_as_online boolean default 0, '
                          ' album_as_online boolean default 0, '
@@ -53,12 +53,20 @@ class Database:
                                                                                                 title=title))))
         if old_filename != filename:
             verify_dir(folder_name)
-            if force_move or os.path.abspath(old_filename).startswith(self.path):
-                logger.info('moving {} to {}'.format(old_filename, filename))
-                if not force_move:
-                    logger.info('moving instead of copying because {} starts with {}'.format(filename,
-                                                                                             self.path))
+            if force_move:
                 return (shutil.move(old_filename, filename), old_filename)
+            elif os.path.abspath(old_filename).startswith(self.path):
+                logger.info('moving {} to {}'.format(old_filename, filename))
+                logger.info('moving instead of copying because {} starts with {}'.format(filename,
+                                                                                         self.path))
+                return_value = (shutil.move(old_filename, filename), old_filename)
+                dirname = os.path.dirname(old_filename) or '.'
+                if os.path.isdir(dirname) and not os.listdir(dirname):
+                    os.removedirs(dirname)
+                    dirname = os.path.dirname(dirname) or '.'
+                    if os.path.isdir(dirname) and not os.listdir(dirname):
+                        os.removedirs(dirname)
+                return return_value
             else:
                 return (shutil.copy(old_filename, filename), old_filename)
 
@@ -73,8 +81,10 @@ class Database:
 
         print(len(moved_list), 'files moved.')
         if moved_list:
-            self.sql.executemany('update songs set filename=? where filename=?',
+            self.sql.executemany('update or ignore songs set filename=? where filename=?',
                                  moved_list)
+            for new, old in moved_list:
+                self.sql.execute('delete from songs where filename=?', (old,))
             self.sql.commit()
 
     def import_file(self, file):
@@ -89,7 +99,7 @@ class Database:
             bitrate = 0
         self.sql.execute('insert or ignore into songs (track, artist, album,'
                          ' title, bitrate, duration, filename, has_file, actual)'
-                         'values (?, ?, ?, ?, ?, ?, ?, 1, 1)',
+                         'values (?, ?, ?, ?, ?, ?, ?, 1, 0)',
                          (track, artist, album, title, bitrate, duration, file))
 
     def import_folder(self, folder):
@@ -105,11 +115,15 @@ class Database:
         cursor = self.sql.execute('select track, artist, album, title, filename '
                                   ' from songs where has_file=1 and actual=0')
         for track, artist, album, title, filename in cursor:
-            tag = open_tag(filename)
-            tag._frames.clear()
-            tag.track, tag.artist, tag.album, tag.title = track, artist, album, title
-            tag.write()
+            if os.path.exists(filename):
+                tag = open_tag(filename)
+                tag._frames.clear()
+                tag.track, tag.artist, tag.album, tag.title = track, artist, album, title
+                tag.write()
+            else:
+                logger.error('Song lost: title {}, artist {}, album {} -- file {} no longer exists'.format(title, artist, album, filename))
         self.sql.execute('update songs set actual=1')
+        self.sql.commit()
 
     def pretty_print(self, artist=None, album=None):
         if artist:
@@ -188,7 +202,7 @@ class Database:
         data = {i: i for i, in cursor}
 
         for i in data:
-            data[i] = improve_encoding(i)
+            data[i] = re.sub(' +', ' ', improve_encoding(i))
 
         case_mapping = defaultdict(list)
         for i in data.values():
@@ -232,7 +246,7 @@ class Database:
                 if extension in title:
                     data[title] = data[title].replace(extension, '')
                     break
-        for old, new in data.items():
+        for old, new in songs.items():
             if old != new:
                 print('REPLACING', old, 'WITH', new)
                 self.sql.execute('update songs set title=?, actual=0 where title=?', (new, old))
@@ -247,16 +261,17 @@ class Database:
                                  (updated, track))
         self.sql.commit()
 
-    def correct_artist(self, artist):
+    def correct_artist(self, artist, force=False):
         logger.debug('in correct_artist({})'.format(artist))
-        already = self.sql.execute('select artist_as_online from songs where artist=?',
-                                   (artist,)).fetchone()
-        if already and already[0]:
-            return artist
+        if not force:
+            already = self.sql.execute('select artist_as_online from songs where artist=?',
+                                       (artist,)).fetchone()
+            if already and already[0]:
+                return artist
         improved = self.online.generic('artist', artist).name
-        # decoded = improve_encoding(improved)
-        # if improved != decoded:
-            #
+        decoded = improve_encoding(improved)
+        if improved != decoded:
+            improved = self.online.generic('artist', decoded).name
         artists = self.sql.execute('select distinct artist from songs').fetchall()
         artists = {i: normalcase(i) for i, in artists if i}
         query = normalcase(artist)

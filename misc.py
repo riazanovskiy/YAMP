@@ -3,6 +3,8 @@ import gzip
 import urllib
 import re
 from functools import lru_cache
+import unicodedata
+
 
 import enchant
 import pytils
@@ -136,6 +138,10 @@ def ungzip(data):
     return gzip.GzipFile(fileobj=data).read()
 
 
+def strip_accents(s):
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+
+
 @lru_cache()
 def normalcase(data):
-    return re.sub(' +', ' ', re.sub('[][._/(:;\)-]', ' ', data.upper())).replace('С', 'C').replace('с', 'c')
+    return re.sub(' +', ' ', strip_accents(data.upper().translate(str.maketrans('[][._/(:;\)-]"\'Сс', '               Cc'))))

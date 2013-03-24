@@ -2,6 +2,7 @@
 # warnings.simplefilter('ignore')
 import os
 from configparser import ConfigParser
+import time
 
 import readline
 
@@ -68,7 +69,7 @@ class YampShell(cmd.Cmd):
                 if begidx == command:
                     return ['@' + i for i in self.artists() if i.startswith(pref[1:])]
                 else:
-                    return [i[begidx:] for i in self.artists() if i.startswith(pref[1:])]
+                    return [i[begidx - command - 1:] for i in self.artists() if i.startswith(pref[1:])]
         return ([i[begidx - command:] for i in self.albums() if i.startswith(pref)] +
                 [i[begidx - command:] for i in self.artists() if i.startswith(pref)])
 
@@ -217,6 +218,24 @@ class YampShell(cmd.Cmd):
     def complete_more(self, text, line, begidx, endidx):
         return self._complete(line, begidx)
 
+############# correct ########################################################################################
+
+    def do_correct(self, args):
+        artist, album, args = self.parse_arguments(args)
+        if artist:
+            db.correct_artist(artist, force=True)
+        self._albums = []
+        self._artists = []
+
+    def help_correct(self):
+        print('correct artist|album')
+        print('correct #album')
+        print('correct @artist')
+        print('This will try to improve tags. Use # to specify album. Use @ to specify artist.')
+
+    def complete_correct(self, text, line, begidx, endidx):
+        return self._complete(line, begidx)
+
 ############# translit ########################################################################################
     def help_translit(self):
         print('translit artist|album')
@@ -228,21 +247,15 @@ class YampShell(cmd.Cmd):
         return self._complete(line, begidx)
 
     def do_translit(self, args):
-        args = args.strip()
-        if args:
-            self._artists = []
+        artist, album, args = self.parse_arguments(args)
+        if album or artist:
             self._albums = []
-            if args[0] == '@':
-                db.transliterate('artist', args[1:], artist='')
+            self._artists = []
+            if album:
+                db.transliterate_album(album)
                 return
-            elif args[0] == '#':
-                db.transliterate_album(args[1:])
-                return
-            elif args in self.albums():
-                db.transliterate_album(args)
-                return
-            elif args in self.artists():
-                db.transliterate('artist', args, artist='')
+            elif artist:
+                db.transliterate('artist', artist, artist='')
                 return
 
 ############# fetch ########################################################################################
@@ -278,6 +291,13 @@ class YampShell(cmd.Cmd):
     def emptyline(self):
         pass
 
+    def precmd(self, line):
+        self.time_before = time.time()
+        return line
+
+    def postcmd(self, stop, line):
+        logger.info('Execution time was {}'.format(round(time.time() - self.time_before, 2)))
+        return stop
 
 if __name__ == '__main__':
     colorama.init()
@@ -291,7 +311,7 @@ if __name__ == '__main__':
         with open('yampconfig', 'w') as file:
             config.write(file)
     verify_dir(path)
-    db = database.Database(path, use_grooveshark=input('Should we use grooveshark? ')[0] in ['yes', 'y'])
+    db = database.Database(path, use_grooveshark=get_yn_promt('Should we use grooveshark? '))
     logger.info('Started')
     readline.set_completer_delims(' \t\n;')
     YampShell(completekey='tab').cmdloop('This is yet another media player.\nUse help or help <command> to get help. ')

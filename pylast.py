@@ -2972,7 +2972,7 @@ class User(_BaseObject):
         return _extract(doc, "subscriber") == "1"
 
     def get_playcount(self):
-     """Returns the user's playcount so far."""
+        """Returns the user's playcount so far."""
 
         doc = self._request("user.getInfo", True)
 

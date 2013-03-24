@@ -183,7 +183,7 @@ class OnlineData:
                     break
                 artist = Artist(result)
                 logger.info('Got artist result ' + str(artist.name))
-                if (diff(artist.name, known) < 0.5 or (provider == BRAINZ
+                if (diff(artist.name, known) < 0.3 or (provider == BRAINZ
                                                        and 'alias-list' in result
                                                        and known in result['alias-list'])):
                     return artist
@@ -223,10 +223,10 @@ class OnlineData:
             for i, result in zip(range(RESULTS_TO_REVIEW), output):
                 logger.info('Album: attempt #{}'.format(i + 1))
                 album = Album(result)
-                if artist and diff(album.artist, artist) > 0.5:
+                if artist and diff(album.artist, artist) > 0.4:
                     logger.info('Omitting because {} != {}'.format(album.artist, artist))
                     continue
-                if diff(album.name, title) > 0.5:
+                if diff(album.name, title) > 0.4:
                     logger.info('Omitting because of title: {}'.format(album.name))
                     continue
                 if min_tracks and len(album.tracks()) < min_tracks:
@@ -273,9 +273,9 @@ class OnlineData:
                 if i == RESULTS_TO_REVIEW:
                     break
                 song = Song(result)
-                if artist and diff(song.artist, artist) > 0.5:
+                if artist and diff(song.artist, artist) > 0.4:
                     continue
-                if diff(song.name, title) < 0.5:
+                if diff(song.name, title) < 0.4:
                     return song
 
         return None
