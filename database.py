@@ -54,9 +54,10 @@ class Database:
         if old_filename != filename:
             verify_dir(folder_name)
             if force_move or os.path.abspath(old_filename).startswith(self.path):
-                logger.info('moving ' + str(old_filename) + ' to ' + filename)
+                logger.info('moving {} to {}'.format(old_filename, filename))
                 if not force_move:
-                    logger.info('moving instead of copying because ' + filename + ' starts with ' + self.path)
+                    logger.info('moving instead of copying because {} starts with {}'.format(filename,
+                                                                                             self.path))
                 return (shutil.move(old_filename, filename), old_filename)
             else:
                 return (shutil.copy(old_filename, filename), old_filename)
@@ -224,35 +225,38 @@ class Database:
 
     def remove_extensions_from_tracks(self):
         cursor = self.sql.execute('select distinct title from songs')
-        data = {i: i for i, in cursor}
+        songs = {i: i for i, in cursor}
         to_remove = ['.mp3', '.MP3', 'mp3', 'MP3']
-        for i in data:
-            for j in to_remove:
-                if j in i:
-                    data[i] = data[i].replace(j, '')
+        for title in songs:
+            for extension in to_remove:
+                if extension in title:
+                    data[title] = data[title].replace(extension, '')
                     break
-        for i, j in data.items():
-            if i != j:
-                print('REPLACING', i, 'WITH', j)
-                self.sql.execute('update songs set title=?, actual=0 where title=?', (j, i))
+        for old, new in data.items():
+            if old != new:
+                print('REPLACING', old, 'WITH', new)
+                self.sql.execute('update songs set title=?, actual=0 where title=?', (new, old))
         self.sql.commit()
 
     def remove_by_list(self, tracks, what):
-        for i in tracks:
-            updated = i.replace(what, '')
-            if updated != i:
-                print('REPLACING', i, 'WITH', updated)
+        for track in tracks:
+            updated = track.replace(what, '')
+            if updated != track:
+                print('REPLACING', track, 'WITH', updated)
                 self.sql.execute('update songs set title=?, actual=0 where title=?',
-                                 (updated, i))
+                                 (updated, track))
         self.sql.commit()
 
     def correct_artist(self, artist):
-        logger.debug('in correct_artist(%s)' % artist)
+        logger.debug('in correct_artist({})'.format(artist))
         already = self.sql.execute('select artist_as_online from songs where artist=?',
                                    (artist,)).fetchone()
         if already and already[0]:
             return artist
         improved = self.online.generic('artist', artist).name
+        # decoded = improve_encoding(improved)
+        # if improved != decoded:
+            #
         artists = self.sql.execute('select distinct artist from songs').fetchall()
         artists = {i: normalcase(i) for i, in artists if i}
         query = normalcase(artist)
@@ -266,7 +270,7 @@ class Database:
         return improved
 
     def correct_album(self, album):
-        logger.debug('in correct_album(' + str(album) + ')')
+        logger.debug('in correct_album({})'.format(album))
         improved = self.online.generic('album', album).name
         if improved != album:
             print('REPLACING', album, 'WITH', improved)
@@ -332,7 +336,7 @@ class Database:
         self.sql.commit()
 
     def fill_album(self, artist, albumname):
-        logger.debug('fill_album(' + str(artist) + ', ' + str(albumname) + ')')
+        logger.debug('in fill_album({}, {})'.format(artist, albumname))
         min_tracks = 0
         tracknames = []
         known_tracks = []

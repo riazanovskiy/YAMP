@@ -28,7 +28,7 @@ class LastSong:
         if album:
             self.album = improve_encoding(album.title)
         self.track = 0
-        logger.debug('in LastSong(name=' + str(self.name) + ', album=' + str(self.album) + ')')
+        logger.debug('in LastSong(name={}, album={})'.format(self.name, self.album))
 
 
 class LastAlbum:
@@ -163,7 +163,7 @@ class OnlineData:
 
     @lru_cache()
     def _search_artist(self, provider, known):
-        logger.info('In _search_artist(' + str(provider) + ', ' + known + ') ')
+        logger.info('In _search_artist(provider={}, {})'.format(provider, known))
         RESULTS_TO_REVIEW = 3
         search = [lambda: self.lastfm.search_for_artist(known).get_next_page(),
                   lambda: self.shark.getResultsFromSearch(known, 'Artists')['result'],
@@ -199,7 +199,7 @@ class OnlineData:
                 or self._search_artist(provider, strip_brackets(known)))
 
     def _search_album(self, provider, title, artist='', tracks=[], min_tracks=0):
-        logger.info('In _search_album(' + str(provider) + ', ' + str(title) + ', ' + str(artist) + ')')
+        logger.info('In _search_album(provider={}, title={}, artist={})'.format(provider, title, artist))
         RESULTS_TO_REVIEW = 5 if artist else 40
 
         def searchlast():
@@ -221,16 +221,16 @@ class OnlineData:
             return None
         if output:
             for i, result in zip(range(RESULTS_TO_REVIEW), output):
-                logger.info('Album: attempt #' + str(i + 1))
+                logger.info('Album: attempt #{}'.format(i + 1))
                 album = Album(result)
                 if artist and diff(album.artist, artist) > 0.5:
-                    logger.info('Omitting because ' + str(album.artist) + ' != ' + str(artist))
+                    logger.info('Omitting because {} != {}'.format(album.artist, artist))
                     continue
                 if diff(album.name, title) > 0.5:
-                    logger.info('Omitting because of title: ' + str(album.name))
+                    logger.info('Omitting because of title: {}'.format(album.name))
                     continue
                 if min_tracks and len(album.tracks()) < min_tracks:
-                    logger.info('Omitting because of min_tracks: only ' + str(len(album.tracks())))
+                    logger.info('Omitting because of min_tracks: only {}'.format(len(album.tracks())))
                     continue
                 if tracks:
                     album_tracks = [normalcase(i.name) for i in album.tracks()]
