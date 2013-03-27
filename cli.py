@@ -264,7 +264,7 @@ class YampShell(cmd.Cmd):
 
 ############# fetch ########################################################################################
     def help_fetch(self):
-        print('fetch [count] [#artist] [@album]')
+        print('fetch [count] [@artist] [#album]')
         print("This will fetch mp3 file for songs which don't have one.")
         print('This will fetch up to count files or all of them if count is not specified')
 

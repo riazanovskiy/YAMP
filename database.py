@@ -328,12 +328,21 @@ class Database:
         known_tracks = {normalcase(i) for i, in cursor}
 
         suggestions = []
+
         fetched_artist = self.online.artist(onlinedata.LASTFM, artist)
         suggestions += fetched_artist.tracks() if fetched_artist else []
+
         fetched_artist = self.online.artist(onlinedata.GROOVESHARK, artist)
         suggestions += fetched_artist.tracks() if fetched_artist else []
-        suggestions = [i for i in suggestions if normalcase(i.name) not in known_tracks]
-        suggestions = [i for i in suggestions if not any(j in normalcase(i.name) for j in known_tracks) and i.album]
+
+        if known_tracks:
+            suggestions = [i for i in suggestions if normalcase(i.name) not in known_tracks]
+            suggestions = [i for i in suggestions if not any(j in normalcase(i.name) for j in known_tracks)]
+
+        only_with_album = [i for i in suggestions if i.album]
+
+        if only_with_album:
+            suggestions = only_with_album
 
         for song in suggestions[:count]:
             self.sql.execute('insert or ignore into songs'
@@ -430,7 +439,7 @@ class Database:
                                          (i + 1, artist, albumname, track.name,
                                           'NOFILE' + ''.join(random.choice(string.hexdigits) for x in range(16))))
                     except sqlite3.IntegrityError:
-                        print('Can not insert: artist ', artist, 'album ', albumname, 'track', fetched_tracks[i][0])
+                        print('Can not insert: artist ', artist, 'album ', albumname, 'title', track.name, 'track', i)
         self.sql.commit()
 
     def get_artists(self):

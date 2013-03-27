@@ -39,15 +39,20 @@ def get_translit(words):
     return ' '.join(pytils.translit.detranslify(i) for i in re.sub('[._/-]', ' ', words).split())
 
 
+def get_recoded(request):
+    for dst, src in [('cp1252', 'cp1251'), ('cp1251', 'cp1252')]:
+        try:
+            yield request.encode(dst).decode(src)
+        except:
+            continue
+
+
 def improve_encoding(request):
     result = request
     spelling = measure_spelling(request)
-
     if not is_all_ascii(request):
-        attepmts = [('cp1252', 'cp1251'), ('cp1251', 'cp1252')]
-        for dst, src in attepmts:
+        for suggest in get_recoded(request):
             try:
-                suggest = request.encode(dst).decode(src)
                 quality = measure_spelling(suggest)
                 if quality > spelling:
                     result = suggest
