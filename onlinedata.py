@@ -21,10 +21,10 @@ BRAINZ = 2
 
 class LastSong:
     def __init__(self, song):
-        self.artist = song.artist.name
+        self.artist = song.artist.name or ''
         self.name = improve_encoding(song.title)
         album = song.get_album()
-        self.album = None
+        self.album = ''
         if album:
             self.album = improve_encoding(album.title)
         self.track = 0
@@ -177,7 +177,7 @@ class OnlineData:
             logger.exception(exc)
             return None
         if output:
-            logger.info('got output')
+            logger.debug('got output')
             for i, result in zip(range(RESULTS_TO_REVIEW), output):
                 artist = Artist(result)
                 logger.info('Got artist result ' + str(artist.name))
@@ -188,7 +188,7 @@ class OnlineData:
                 else:
                     logger.info(artist.name + ' differs from ' + known)
         else:
-            logger.info('no output')
+            logger.debug('no output')
         return None
 
     @lru_cache()
@@ -288,8 +288,8 @@ class OnlineData:
         '''Downloads song and set its tags to given title, artist, album'''
         logger.debug('in download(' + repr((title, artist, album, track)) + ')')
         title = strip_unprintable(title.strip())
-        artist = strip_unprintable(artist.strip())
-        album = strip_unprintable(album.strip())
+        artist = strip_unprintable(artist.strip()) if artist else ''
+        album = strip_unprintable(album.strip()) if album else ''
         data = None
         providers = [vpleer.download, grooveshark.download]
         exc = None
