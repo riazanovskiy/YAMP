@@ -47,7 +47,12 @@ class Database:
         self.songs_cache = {}
 
     def move_file(self, old_filename, track, artist, album, title, force_move=False):
-        folder_name = os.path.join(self.path, valid_filename(artist), valid_filename(album))
+        artists = self.sql.execute('select count(distinct artist) from songs where album=?', (album,)).fetchone()[0]
+        if artists > 1:
+            print('More than one artist for album {}'.format(album))
+            folder_name = os.path.join(self.path, valid_filename(album))
+        else:
+            folder_name = os.path.join(self.path, valid_filename(artist), valid_filename(album))
         filename = os.path.abspath(os.path.join(folder_name,
                                                 valid_filename('{track:0=2} {title}.mp3'.format(track=track,
                                                                                                 title=title))))
@@ -56,9 +61,9 @@ class Database:
             if force_move:
                 return (shutil.move(old_filename, filename), old_filename)
             elif os.path.abspath(old_filename).startswith(self.path):
-                logger.info('moving {} to {}'.format(old_filename, filename))
-                logger.info('moving instead of copying because {} starts with {}'.format(filename,
-                                                                                         self.path))
+                # logger.info('moving {} to {}'.format(old_filename, filename))
+                # logger.info('moving instead of copying because {} starts with {}'.format(filename,
+                                                                                         # self.path))
                 return_value = (shutil.move(old_filename, filename), old_filename)
                 dirname = os.path.dirname(old_filename) or '.'
                 if os.path.isdir(dirname) and not os.listdir(dirname):

@@ -36,10 +36,16 @@ class LastAlbum:
         self._link = album
         self.name = album.get_title()
         self.artist = album.get_artist().get_name()
-        self._tracks = None
+        self._tracks = []
 
     def tracks(self):
-        self._tracks = self._tracks or [LastSong(i) for i in self._link.get_tracks()]
+        if not self._tracks:
+            for i in self._link.get_tracks():
+                try:
+                    self._tracks.append(LastSong(i))
+                except Exception as exc:
+                    logger.error('Can not fetch track for album {}'.format(self.name))
+                    logger.exception(exc)
         return self._tracks
 
 
@@ -303,7 +309,7 @@ class OnlineData:
         else:
             return ''
 
-        filename = str(track).zfill(2) + ' - ' + artist + '-' + title + '.mp3'  # + '__' + str(random.randint(100000, 999999))
+        filename = str(track).zfill(2) + ' - ' + artist + ' - ' + title + '.mp3'
         with open(filename, 'wb') as file:
             file.write(data)
             file.flush()

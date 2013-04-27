@@ -129,7 +129,7 @@ def log_response(response):
 
 def ok_code(response, message):
     if response.status not in [200]:
-        raise Exception(message + (' - error %d' % response.status))
+        raise Exception(message + (' - error {}'.format(response.status)))
 
 
 def make_request(connection, error_message, *args, **kwargs):
@@ -149,4 +149,4 @@ def strip_accents(s):
 
 @lru_cache()
 def normalcase(data):
-    return re.sub(' +', ' ', strip_accents(data.upper().translate(str.maketrans('[][._/(:;\)-]"\'Сс', '               Cc'))))
+    return re.sub(' +', ' ', strip_accents(data.upper().translate(str.maketrans('[][._/(:;\)-]"\'', '               '))))
