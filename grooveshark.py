@@ -250,9 +250,8 @@ def download(artist, title, limit=0):
         raise NotFoundOnline()
     for song, i in zip(result, range(10)):
         if (diff(song['ArtistName'], artist) < 0.25 and
-            ('SongName' in song and diff(song['SongName'], title) < 0.25) or
             ('SongName' in song and diff(song['SongName'], title) < 0.25) and
-            'SongID' in song):
+           'SongID' in song):
             songid = song['SongID']
             decoded = singleton.getStreamKeysFromSongIDs(songid)
             result = decoded[songid]
@@ -267,13 +266,17 @@ def download(artist, title, limit=0):
     raise NotFoundOnline
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 1:
         sys.argv.append('paolo conte')
         sys.argv.append('Via Con Me')
         sys.argv.append('test__.mp3')
-    elif len(sys.argv) != 3:
+    elif len(sys.argv) == 3:
+        sys.argv.append(sys.argv[1] + ' ' + sys.argv[2] + '.mp3')
+    else:
         print('Enter your search query and output filename')
         exit(1)
     output = open(sys.argv[3], 'wb')
+    print('Downloading', sys.argv[2], 'by', sys.argv[1], 'to file', sys.argv[3])
+    setup_connection()
     output.write(download(sys.argv[1], sys.argv[2]))
     output.close()

@@ -130,6 +130,16 @@ class Database:
         self.sql.execute('update songs set actual=1')
         self.sql.commit()
 
+    def rescan(self):
+        lost_files = []
+        for filename, in self.sql.execute('select filename from songs where has_file=1'):
+            if not os.path.exists(filename):
+                lost_files.append(filename)
+        for filename in lost_files:
+            print('File', filename, 'not found')
+            self.sql.execute('update songs set filename=?, has_file=0 where filename=?',
+                             ('NOFILE' + ''.join(random.choice(string.hexdigits) for x in range(16)), filename))
+
     def pretty_print(self, artist=None, album=None):
         if artist:
             print(artist)

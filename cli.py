@@ -10,6 +10,8 @@ import cmd
 import colorama
 import glob
 
+import pyglet
+
 import database
 from misc import verify_dir
 from log import logger
@@ -41,6 +43,7 @@ class YampShell(cmd.Cmd):
         super().__init__(*args, **kwargs)
         self._artists = []
         self._albums = []
+        self.player = pyglet.media.Player()
 
     def albums(self):
         if not self._albums:
@@ -282,6 +285,35 @@ class YampShell(cmd.Cmd):
 
     def complete_fetch(self, text, line, begidx, endidx):
         return self._complete(line, begidx)
+
+############# rescan ########################################################################################
+    def help_rescan(self):
+        print('rescan')
+        print("This will check whether all files in database exist")
+
+    def do_rescan(self, args):
+        db.rescan()
+
+############# play ########################################################################################
+    # def help_play(self):
+    #     print('play [@artist] [#album]')
+    #     print("This will add ")
+    #     print('This will play up to count files or all of them if count is not specified')
+
+    # def do_play(self, args):
+    #     artist, album, args = self.parse_arguments(args)
+    #     if args:
+    #         try:
+    #             count = int(args)
+    #         except:
+    #             print(args, 'is not a number')
+    #             return
+    #     else:
+    #         count = 100500
+    #     db.play_data(count=count, artist=artist, album=album)
+
+    # def complete_play(self, text, line, begidx, endidx):
+    #     return self._complete(line, begidx)
 
 ############# EOF ########################################################################################
 
