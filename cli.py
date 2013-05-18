@@ -3,6 +3,7 @@
 import os
 from configparser import ConfigParser
 import time
+import random
 
 import readline
 
@@ -295,25 +296,75 @@ class YampShell(cmd.Cmd):
         db.rescan()
 
 ############# play ########################################################################################
-    # def help_play(self):
-    #     print('play [@artist] [#album]')
-    #     print("This will add ")
-    #     print('This will play up to count files or all of them if count is not specified')
+    def help_play(self):
+        print('play')
+        print('This will resume playback')
+        print('play @artist')
+        print('This will start playing songs of specified artist in random order')
+        print('play #album')
+        print('This will play specified album')
 
-    # def do_play(self, args):
-    #     artist, album, args = self.parse_arguments(args)
-    #     if args:
-    #         try:
-    #             count = int(args)
-    #         except:
-    #             print(args, 'is not a number')
-    #             return
-    #     else:
-    #         count = 100500
-    #     db.play_data(count=count, artist=artist, album=album)
+    def do_play(self, args):
+        artist, album, args = self.parse_arguments(args)
+        if album:
+            self.player.pause()
+            self.player = pyglet.media.Player()
+            if artist:
+                db.sql.execute('select track, filename from songs where album=? and artist=? and has_file=1',
+                               (album, artist))
+            else:
+                cursor = db.sql.execute('select track, filename from songs where album=? and has_file=1', (album,))
+            for track, filename in sorted(cursor):
+                self.player.queue(pyglet.media.load(filename))
+        elif artist:
+            self.player.pause()
+            self.player = pyglet.media.Player()
+            filenames = [i for i, in db.sql.execute('select filename from songs where artist=? and has_file=1 order by random()', (artist,))]
+            for filename in filenames:
+                self.player.queue(pyglet.media.load(filename))
+        self.player.play()
 
-    # def complete_play(self, text, line, begidx, endidx):
-    #     return self._complete(line, begidx)
+    def complete_play(self, text, line, begidx, endidx):
+        return self._complete(line, begidx)
+
+############# next ########################################################################################
+    def help_next(self):
+        print('next')
+        print("This will switch to next song")
+
+    def do_next(self, args):
+        self.player.__next__()
+
+############# shuffle ########################################################################################
+    def help_shuffle(self):
+        print('shuffle [count]')
+        print("This will play 100 or count songs in random order")
+
+    def do_shuffle(self, args):
+        args = args.strip()
+        if args:
+            try:
+                count = int(args)
+            except:
+                count = 100
+        else:
+            count = 100
+        self.player.pause()
+        self.player = pyglet.media.Player()
+        filenames = [i for i, in db.sql.execute('select filename from songs '
+                                                'where has_file=1 '
+                                                'order by random() limit ?;', (count,))]
+        for filename in filenames:
+            self.player.queue(pyglet.media.load(filename))
+        self.player.play()
+
+############# pause ########################################################################################
+    def help_pause(self):
+        print('pause')
+        print("This will pause playback")
+
+    def do_pause(self, args):
+        self.player.pause()
 
 ############# EOF ########################################################################################
 

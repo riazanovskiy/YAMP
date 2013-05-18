@@ -32,8 +32,12 @@ class Database:
         self.datapath = os.path.join(path, 'database')
         self.sql = sqlite3.connect(self.datapath)
         self.sql.execute('create table if not exists songs (track int,'
-                         ' artist text, album text, title text, bitrate int,'
-                         ' duration int, filename text unique,'
+                         ' artist text, '
+                         ' album text, '
+                         ' title text, '
+                         ' bitrate int,'
+                         ' duration int, '
+                         ' filename text unique,'
                          ' has_file boolean, '
                          ' actual boolean default 0,'
                          # ' mbid text, '
