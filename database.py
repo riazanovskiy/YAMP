@@ -147,9 +147,11 @@ class Database:
     def pretty_print(self, artist=None, album=None):
         if artist:
             print(artist)
-            cursor = self.sql.execute('select distinct album from songs where artist=?', (artist,))
-            for i, in cursor:
-                print('\t', i)
+            albums = [i for i, in self.sql.execute('select distinct album from songs where artist=?', (artist,))]
+            for album in albums:
+                print('\t', album)
+                for track, title in sorted(self.sql.execute('select track, title from songs where artist=? and album=?', (artist, album))):
+                    print('\t\t#{:<2} {}'.format(track, title))
         elif album:
             print(album, 'by', self.get_artist_of_album(album))
             cursor = self.sql.execute('select track, title from songs where album=?', (album,))
