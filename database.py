@@ -585,7 +585,7 @@ class Database:
                 logger.debug('download of ' + title + ' failed, omitting')
                 continue
             right_filename = self.move_file(new_filename, track, artist, album, title, force_move=True)[0]
-            self.sql.execute('update songs set filename=? where filename=?',
+            self.sql.execute('update songs set filename=?, has_file=1 where filename=?',
                              (right_filename, dummy_filename))
             success += 1
         self.sql.commit()

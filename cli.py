@@ -310,8 +310,8 @@ class YampShell(cmd.Cmd):
             self.player.pause()
             self.player = pyglet.media.Player()
             if artist:
-                db.sql.execute('select track, filename from songs where album=? and artist=? and has_file=1',
-                               (album, artist))
+                cursor = db.sql.execute('select track, filename from songs where album=? and artist=? and has_file=1',
+                                        (album, artist))
             else:
                 cursor = db.sql.execute('select track, filename from songs where album=? and has_file=1', (album,))
             for track, filename in sorted(cursor):
@@ -334,6 +334,7 @@ class YampShell(cmd.Cmd):
 
     def do_next(self, args):
         self.player.__next__()
+        self.player.play()
 
 ############# shuffle ########################################################################################
     def help_shuffle(self):
