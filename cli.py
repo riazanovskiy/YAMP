@@ -3,7 +3,7 @@
 import os
 from configparser import ConfigParser
 import time
-import random
+import sys
 
 import readline
 
@@ -11,11 +11,15 @@ import cmd
 import colorama
 import glob
 
-import pyglet
-
 import database
 from misc import verify_dir
 from log import logger
+
+try:
+    import pyglet
+except:
+    logger.error('No pyglet library')
+    pyglet = None
 
 
 def get_yn_promt(promt):
@@ -145,7 +149,7 @@ class YampShell(cmd.Cmd):
             self._albums = []
             self._artists = []
         else:
-            print('Nothing to import.')
+            print('Nothing to import.', file=sys.stderr)
 
     def help_import(self):
         print('import /directory/name ...')
@@ -158,7 +162,7 @@ class YampShell(cmd.Cmd):
 
     def do_move(self, args):
         if get_yn_promt('Are you sure? '):
-            print('Moving all music files. Be patient, this can take some time.')
+            print('Moving all music files. Be patient, this can take some time.', file=sys.stderr)
             db.move_files()
             db.writeout()
 
@@ -199,13 +203,13 @@ class YampShell(cmd.Cmd):
         if album:
             if not artist:
                 artist = db.get_artist_of_album(album)
-            print('Fetching more songs from album', album, 'by', artist)
+            print('Fetching more songs from album', album, 'by', artist, file=sys.stderr)
             db.fill_album(artist, album)
         elif artist:
-            print('Fetching more songs by', artist)
+            print('Fetching more songs by', artist, file=sys.stderr)
             db.fetch_tracks_for_artist(artist)
         elif args:
-            print('Fetching more songs by', args)
+            print('Fetching more songs by', args, file=sys.stderr)
             db.fetch_tracks_for_artist(args)
         else:
             return
@@ -278,7 +282,7 @@ class YampShell(cmd.Cmd):
             try:
                 count = int(args)
             except:
-                print(args, 'is not a number')
+                print(args, 'is not a number', file=sys.stderr)
                 return
         else:
             count = 100500
@@ -305,6 +309,10 @@ class YampShell(cmd.Cmd):
         print('This will play specified album')
 
     def do_play(self, args):
+        if not pyglet:
+            logger.error('No pyglet library')
+            return
+
         artist, album, args = self.parse_arguments(args)
         if album:
             self.player.pause()
@@ -333,6 +341,10 @@ class YampShell(cmd.Cmd):
         print("This will switch to next song")
 
     def do_next(self, args):
+        if not pyglet:
+            logger.error('No pyglet library')
+            return
+
         self.player.__next__()
         self.player.play()
 
@@ -342,6 +354,10 @@ class YampShell(cmd.Cmd):
         print("This will play 100 or count songs in random order")
 
     def do_shuffle(self, args):
+        if not pyglet:
+            logger.error('No pyglet library')
+            return
+
         args = args.strip()
         if args:
             try:
@@ -370,10 +386,10 @@ class YampShell(cmd.Cmd):
 ############# EOF ########################################################################################
 
     def do_EOF(self, args):
-        print()
-        print('Saving your changes...')
+        print(file=sys.stderr)
+        print('Saving your changes...', file=sys.stderr)
         db.writeout()
-        print('Exiting')
+        print('Exiting', file=sys.stderr)
         return True
 
     def emptyline(self):

@@ -1,3 +1,4 @@
+import os
 import random
 import multiprocessing
 import urllib
@@ -46,6 +47,7 @@ class LastAlbum:
                 except Exception as exc:
                     logger.error('Can not fetch track for album {}'.format(self.name))
                     logger.exception(exc)
+
         return self._tracks
 
 
@@ -310,6 +312,7 @@ class OnlineData:
             return ''
 
         filename = str(track).zfill(2) + ' - ' + artist + ' - ' + title + '.mp3'
+        logger.debug('Saving to {}'.format(os.path.abspath(filename)))
         with open(filename, 'wb') as file:
             file.write(data)
             file.flush()

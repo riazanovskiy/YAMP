@@ -5,7 +5,6 @@ import sqlite3
 import re
 import random
 import string
-import itertools
 from collections import defaultdict
 from pprint import pprint
 
@@ -16,7 +15,7 @@ from log import logger
 from onlinedata import OnlineData
 from tags import open_tag
 import misc
-from misc import (filesize, is_all_ascii, levenshtein, normalcase,
+from misc import (filesize, levenshtein, normalcase,
                   improve_encoding, valid_filename, verify_dir)
 from errors import NotFoundOnline
 
@@ -65,9 +64,9 @@ class Database:
             if force_move:
                 return (shutil.move(old_filename, filename), old_filename)
             elif os.path.abspath(old_filename).startswith(self.path):
-                # logger.info('moving {} to {}'.format(old_filename, filename))
-                # logger.info('moving instead of copying because {} starts with {}'.format(filename,
-                                                                                         # self.path))
+                logger.info('moving {} to {}'.format(old_filename, filename))
+                logger.info('moving instead of copying because {} starts with {}'.format(filename,
+                                                                                         self.path))
                 return_value = (shutil.move(old_filename, filename), old_filename)
                 dirname = os.path.dirname(old_filename) or '.'
                 if os.path.isdir(dirname) and not os.listdir(dirname):
@@ -369,8 +368,8 @@ class Database:
             self.sql.execute('insert or ignore into songs'
                              ' (artist, title, album, track, filename, has_file)'
                              ' values (?, ?, ?, ?, ?, 0)',
-                             (artist, song.name, song.album, song.track, 'NOFILE' +
-                             ''.join(random.choice(string.hexdigits) for x in range(16))))
+                             (artist, song.name, song.album, song.track,
+                              'NOFILE' + ''.join(random.choice(string.hexdigits) for x in range(16))))
         self.sql.commit()
         print(self.sql.execute('select count (*) from songs').fetchone()[0] - inserted, 'songs added')
 
