@@ -1,5 +1,3 @@
-# import warnings
-# warnings.simplefilter('ignore')
 import os
 from configparser import ConfigParser
 import time
@@ -48,6 +46,9 @@ class YampShell(cmd.Cmd):
         super().__init__(*args, **kwargs)
         self._artists = []
         self._albums = []
+        if not pyglet:
+            logger.error('No pyglet library')
+            return
         self.player = pyglet.media.Player()
 
     def albums(self):
@@ -345,7 +346,7 @@ class YampShell(cmd.Cmd):
             logger.error('No pyglet library')
             return
 
-        self.player.__next__()
+        self.player.next_source()
         self.player.play()
 
 ############# shuffle ########################################################################################
@@ -358,6 +359,8 @@ class YampShell(cmd.Cmd):
             logger.error('No pyglet library')
             return
 
+        logger.debug('shuffle: started')
+
         args = args.strip()
         if args:
             try:
@@ -367,12 +370,22 @@ class YampShell(cmd.Cmd):
         else:
             count = 100
         self.player.pause()
+        logger.debug('shuffle: paused')
         self.player = pyglet.media.Player()
+        logger.debug('shuffle: new player')
         filenames = [i for i, in db.sql.execute('select filename from songs '
                                                 'where has_file=1 '
                                                 'order by random() limit ?;', (count,))]
+        logger.debug('shuffle: starting to add')
         for filename in filenames:
-            self.player.queue(pyglet.media.load(filename))
+            try:
+                src = pyglet.media.load(filename)
+                logger.debug('shuffle: source created')
+                self.player.queue(src)
+                logger.debug('shuffle: added to queue')
+            except:
+                logger.warning('{} failed to add'.format(filename))
+        logger.debug('shuffle: all added')
         self.player.play()
 
 ############# pause ########################################################################################

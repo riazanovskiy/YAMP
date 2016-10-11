@@ -266,7 +266,7 @@ def download(artist, title, limit=0):
     raise NotFoundOnline
 
 if __name__ == '__main__':
-    if len(sys.argv) < 1:
+    if len(sys.argv) < 2:
         sys.argv.append('paolo conte')
         sys.argv.append('Via Con Me')
         sys.argv.append('test__.mp3')
@@ -274,9 +274,9 @@ if __name__ == '__main__':
         sys.argv.append(sys.argv[1] + ' ' + sys.argv[2] + '.mp3')
     else:
         print('Enter your search query and output filename')
-        exit(1)
+        sys.exit(1)
     output = open(sys.argv[3], 'wb')
-    print('Downloading', sys.argv[2], 'by', sys.argv[1], 'to file', sys.argv[3])
+    print('Downloading {} by {} to file {}'.format(sys.argv[2], sys.argv[1], sys.argv[3]).encode('utf-8').decode(sys.stdout.encoding))
     setup_connection()
     output.write(download(sys.argv[1], sys.argv[2]))
     output.close()

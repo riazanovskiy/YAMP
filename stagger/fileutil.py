@@ -197,6 +197,9 @@ def _replace_chunk_in_place(file, offset, length, chunk, oldsize, newsize):
         try:
             file.truncate(newsize)
         except PermissionError:
-            pass
-            print ('That PermissionError :(')
+            try:
+                file.truncate(newsize)
+            except PermissionError:
+                pass
+                print ('That PermissionError :(')
         return

@@ -57,11 +57,11 @@ def download(artist, title, limit=0):
     raise NotFoundOnline()
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         sys.argv.append('paolo conte')
         sys.argv.append('Via Con Me')
         sys.argv.append('test__.mp3')
-    elif len(sys.argv) != 3:
+    elif len(sys.argv) != 4:
         print('Enter your search query and output filename')
         exit(1)
     output = open(sys.argv[3], 'wb')
