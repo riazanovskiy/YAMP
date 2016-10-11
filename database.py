@@ -25,8 +25,8 @@ def is_music_file(filename):
 
 
 class Database:
-    def __init__(self, path, use_grooveshark=True):
-        self.online = OnlineData(use_grooveshark=use_grooveshark)
+    def __init__(self, path):
+        self.online = OnlineData()
         self.path = os.path.abspath(path)
         self.datapath = os.path.join(path, 'database')
         self.sql = sqlite3.connect(self.datapath)
@@ -352,7 +352,7 @@ class Database:
         fetched_artist = self.online.artist(onlinedata.LASTFM, artist)
         suggestions += fetched_artist.tracks() if fetched_artist else []
 
-        fetched_artist = self.online.artist(onlinedata.GROOVESHARK, artist)
+        fetched_artist = self.online.artist(artist)
         suggestions += fetched_artist.tracks() if fetched_artist else []
 
         if known_tracks:
@@ -415,8 +415,6 @@ class Database:
         album = (self.online.album(onlinedata.BRAINZ, albumname, artist,
                                    tracknames, min_tracks)
                  or self.online.album(onlinedata.LASTFM, albumname, artist,
-                                      tracknames, min_tracks)
-                 or self.online.album(onlinedata.GROOVESHARK, albumname, artist,
                                       tracknames, min_tracks))
 
         if not album:
@@ -426,8 +424,7 @@ class Database:
                 print(albumname, 'not found online')
                 return
             album = (self.online.album(onlinedata.BRAINZ, albumname, artist)
-                     or self.online.album(onlinedata.LASTFM, albumname, artist)
-                     or self.online.album(onlinedata.GROOVESHARK, albumname, artist))
+                     or self.online.album(onlinedata.LASTFM, albumname, artist))
         if not album:
             return
         if not artist:

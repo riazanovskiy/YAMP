@@ -1,24 +1,18 @@
 import os
-import random
-import multiprocessing
 import urllib
-from pprint import pprint
 from functools import lru_cache
 
 import pylast
-import grooveshark
 import musicbrainzngs as brainz
 
 import vpleer
-from misc import diff, strip_brackets, improve_encoding, normalcase, strip_unprintable
 from errors import NotFoundOnline
-from tags import open_tag
 from log import logger
+from misc import diff, strip_brackets, improve_encoding, normalcase, strip_unprintable
+from tags import open_tag
 
 LASTFM = 0
-GROOVESHARK = 1
-BRAINZ = 2
-
+BRAINZ = 1
 
 class LastSong:
     def __init__(self, song):
@@ -60,52 +54,6 @@ class LastArtist:
     def tracks(self):
         logger.debug('in LastArtist.tracks()')
         self._tracks = self._tracks or [LastSong(i.item) for i in self._link.get_top_tracks()]
-        return self._tracks
-
-
-class SharkSong:
-    def __init__(self, song):
-        self.artist = song['ArtistName']
-        if 'SongName' in song:
-            self.name = improve_encoding(song['SongName'])
-        else:
-            self.name = improve_encoding(song['Name'])
-        self.album = improve_encoding(song['AlbumName'])
-        self.id = song['SongID']
-        self.track = int(song['TrackNum'] or '0')
-
-    def __lt__(self, other):
-        return self.track < other.track
-
-
-class SharkAlbum:
-    def __init__(self, album):
-        self.name = album['AlbumName']
-        self.artist = album['ArtistName']
-        self.id = album['AlbumID']
-        self._tracks = None
-
-    def tracks(self):
-        if not self._tracks:
-            tracks = sorted([SharkSong(i) for i in grooveshark.singleton.albumGetAllSongs(self.id)])
-            i = 1
-            self._tracks = [tracks[0]]
-            while i < len(tracks):
-                if self._tracks[-1].track != tracks[i].track:
-                    self._tracks.append(tracks[i])
-                i += 1
-
-        return self._tracks
-
-
-class SharkArtist:
-    def __init__(self, artist):
-        self.id = artist['ArtistID']
-        self.name = artist['Name']
-        self._tracks = None
-
-    def tracks(self):
-        self._tracks = self._tracks or [SharkSong(i) for i in grooveshark.singleton.artistGetAllSongsEx(self.id)]
         return self._tracks
 
 
@@ -158,15 +106,9 @@ class BrainzArtist:
 
 
 class OnlineData:
-    def __init__(self, use_grooveshark=True):
+    def __init__(self):
         self.lastfm = pylast.LastFMNetwork('e494d3c2d1e99307336886c9e1f18af2',
                                            '989f1acfe251e590981d485ad9a82bd1')
-        if use_grooveshark:
-            grooveshark.setup_connection()
-            self.shark = grooveshark.singleton
-        else:
-            global GROOVESHARK
-            GROOVESHARK = BRAINZ
         brainz.set_useragent('Kaganov"s Player', '1.00', 'http://lleo.me')
 
     @lru_cache()
@@ -174,9 +116,8 @@ class OnlineData:
         logger.info('In _search_artist(provider={}, {})'.format(provider, known))
         RESULTS_TO_REVIEW = 3
         search = [lambda: self.lastfm.search_for_artist(known).get_next_page(),
-                  lambda: self.shark.getResultsFromSearch(known, 'Artists')['result'],
                   lambda: brainz.search_artists(known)['artist-list']][provider]
-        Artist = [LastArtist, SharkArtist, BrainzArtist][provider]
+        Artist = [LastArtist, BrainzArtist][provider]
         output = None
         try:
             output = search()
@@ -215,9 +156,8 @@ class OnlineData:
                 search_results = self.lastfm.search_for_album(title)
                 return search_results.get_next_page() + search_results.get_next_page()
         search = [searchlast,
-                  lambda: self.shark.getResultsFromSearch(title, 'Albums')['result'],
                   lambda: brainz.search_releases(title, artist=artist)['release-list']][provider]
-        Album = [LastAlbum, SharkAlbum, BrainzAlbum][provider]
+        Album = [LastAlbum, BrainzAlbum][provider]
         output = None
         try:
             output = search()
@@ -266,9 +206,8 @@ class OnlineData:
     def song(self, provider, title, artist=''):
         RESULTS_TO_REVIEW = 4
         search = [lambda: self.lastfm.search_for_track(artist, title).get_next_page(),
-                  lambda: self.shark.getResultsFromSearch(title, 'Songs')['result'],
                   lambda: brainz.search_recordings(title, artist=artist)['recording-list']][provider]
-        Song = [LastSong, SharkSong, BrainzSong][provider]
+        Song = [LastSong, BrainzSong][provider]
         output = None
         try:
             output = search()
@@ -299,7 +238,7 @@ class OnlineData:
         artist = strip_unprintable(artist.strip()) if artist else ''
         album = strip_unprintable(album.strip()) if album else ''
         data = None
-        providers = [vpleer.download, grooveshark.download]
+        providers = [vpleer.download]
         exc = None
         for download in providers:
             try:

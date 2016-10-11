@@ -428,7 +428,7 @@ if __name__ == '__main__':
         with open('yampconfig', 'w') as file:
             config.write(file)
     verify_dir(path)
-    db = database.Database(path, use_grooveshark=get_yn_promt('Should we use grooveshark? '))
+    db = database.Database(path)
     logger.info('Started')
     readline.set_completer_delims(' \t\n;')
     YampShell(completekey='tab').cmdloop('This is yet another media player.\nUse help or help <command> to get help. ')
