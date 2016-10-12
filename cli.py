@@ -20,7 +20,7 @@ except:
     pyglet = None
 
 
-def get_yn_promt(promt):
+def get_yn_prompt(promt):
     ans = input(promt)
     while ans not in ['y', 'n', '', 'yes', 'no']:
         ans = input(promt)
@@ -162,7 +162,7 @@ class YampShell(cmd.Cmd):
 ############# move ########################################################################################
 
     def do_move(self, args):
-        if get_yn_promt('Are you sure? '):
+        if get_yn_prompt('Are you sure? '):
             print('Moving all music files. Be patient, this can take some time.', file=sys.stderr)
             db.move_files()
             db.writeout()

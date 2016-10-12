@@ -115,8 +115,7 @@ class Database:
         for curr, dirs, files in os.walk(folder):
             for file in (os.path.join(curr, i) for i in files if is_music_file(os.path.join(curr, i))):
                 self.import_file(file)
-        print(self.sql.execute('select count (*) from songs').fetchone()[0] - count,
-              'songs imported')
+        print(self.sql.execute('select count (*) from songs').fetchone()[0] - count, 'songs imported')
         self.sql.commit()
 
     def writeout(self):
@@ -537,7 +536,7 @@ class Database:
 
     def track_numbers_from_filename(self):
         cursor = self.sql.execute('select filename from songs where track=0')
-        updated = dict()
+        updated = {}
         for filename, in cursor:
             if filename.strip()[:2].isdigit():
                 track = int(filename.strip()[:2])

@@ -1,16 +1,19 @@
+import json
 import os
 import gzip
 import urllib
+import urllib.parse
 import re
 from functools import lru_cache
 import unicodedata
-
+from log import logger
 
 import enchant
 import pytils
 
 languages = ['en_US', 'de_DE', 'fr_FR', 'ru_RU']  # FIXME: add Spanish
 dictionaries = [enchant.Dict(lang) for lang in languages]
+digrams, trigrams = None, None
 
 
 @lru_cache()
@@ -23,14 +26,14 @@ def strip_brackets(data):
 
 
 def measure_spelling(words):
-    _words = re.sub('[][._/(:;\)-]', ' ', words).split()
-    if _words:
+    words = re.split('\W+', words)
+    if words:
         spelling = 0.0
-        for word in _words:
+        for word in words:
             if not word.isdigit() and len(word) > 1:
                 if any(d.check(word) for d in dictionaries):
                     spelling += 1
-        return spelling / len(_words)
+        return spelling / len(words)
     else:
         return 1.0
 
@@ -40,6 +43,7 @@ def get_translit(words):
 
 
 def get_recoded(request):
+    yield request
     for dst, src in [('cp1252', 'cp1251'), ('cp1251', 'cp1252')]:
         try:
             yield request.encode(dst).decode(src)
@@ -47,19 +51,31 @@ def get_recoded(request):
             continue
 
 
-def improve_encoding(request):
-    result = request
-    spelling = measure_spelling(request)
-    if not is_all_ascii(request):
-        for suggest in get_recoded(request):
-            try:
-                quality = measure_spelling(suggest)
-                if quality > spelling:
-                    result = suggest
-            except:
-                continue
-    return result
+def load_ngrams_dictionary():
+    if not (os.path.isfile('digrams.json') and os.path.isfile('digrams.json')):
+        logger.info('Generating ngrams dictionary')
+        import ngram_generator
+        logger.info('Dictionary created')
+    global digrams, trigrams
+    with open('digrams.json') as file:
+        digrams = json.load(file)
+        # with open('trigrams.json') as file:
+        #     trigrams = json.load(file)
 
+
+def measure_spelling_ngrams(word):
+    if not digrams:
+        load_ngrams_dictionary()
+    word = '\0' + word + '\0'
+    return sum(digrams.get(word[i:i + 2], 0) for i in range(len(word) - 1)) / digrams['total'] / len(word)
+
+
+@lru_cache()
+def improve_encoding(request):
+    if not is_all_ascii(request):
+        return max(get_recoded(request), key=lambda word: max(measure_spelling(word),
+                                                              measure_spelling_ngrams(word)))
+    return request
 
 def levenshtein(s1, s2):
     if len(s1) < len(s2):
@@ -119,8 +135,8 @@ def is_all_ascii(data):
         return True
 
 
-def urldecode(str):
-    return urllib.parse.unquote(str.replace('\\x', '%'))
+def urldecode(string):
+    return urllib.parse.unquote(string.replace('\\x', '%'))
 
 
 def log_response(response):
@@ -149,4 +165,5 @@ def strip_accents(s):
 
 @lru_cache()
 def normalcase(data):
-    return re.sub(' +', ' ', strip_accents(data.upper().translate(str.maketrans('[][._/(:;\)-]"\'', '               '))))
+    return re.sub(' +', ' ',
+                  strip_accents(data.upper().translate(str.maketrans('[][._/(:;\)-]"\'', '               '))))
