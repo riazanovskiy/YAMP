@@ -25,6 +25,7 @@ def is_music_file(filename):
 
 
 class Database:
+
     def __init__(self, path):
         self.online = OnlineData()
         self.path = os.path.abspath(path)
@@ -229,8 +230,8 @@ class Database:
 
         corrected_case = {}
         for i in case_mapping:
-            if (len(case_mapping[i]) > 1 or case_mapping[i][0].isupper()
-               or case_mapping[i][0].islower()):
+            if (len(case_mapping[i]) > 1 or case_mapping[i][0].isupper() or
+                    case_mapping[i][0].islower()):
                 artist = ''
                 if field != 'artist':
                     artist = self.sql.execute('select artist from songs where {}=?'.format(field),
@@ -349,9 +350,6 @@ class Database:
         suggestions = []
 
         fetched_artist = self.online.artist(onlinedata.LASTFM, artist)
-        suggestions += fetched_artist.tracks() if fetched_artist else []
-
-        fetched_artist = self.online.artist(artist)
         suggestions += fetched_artist.tracks() if fetched_artist else []
 
         if known_tracks:
