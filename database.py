@@ -1,23 +1,21 @@
 # -*- coding: utf-8 -*-
 import os
+import random
+import re
 import shutil
 import sqlite3
-import re
-import random
 import string
 from collections import defaultdict
-from pprint import pprint
 
-import mp3utils
-
-import onlinedata
-from log import logger
-from onlinedata import OnlineData
-from tags import open_tag
 import misc
+import mp3utils
+import onlinedata
+from errors import NotFoundOnline
+from log import logger
 from misc import (filesize, levenshtein, normalcase,
                   improve_encoding, valid_filename, verify_dir)
-from errors import NotFoundOnline
+from onlinedata import OnlineData
+from tags import open_tag
 
 
 def is_music_file(filename):
@@ -192,7 +190,7 @@ class Database:
         try:
             return self.online.generic(what, request, artist=artist).name
         except NotFoundOnline:
-            words = re.sub('[][._/(:;\)-]', ' ', request).split()
+            words = re.sub('[][._/\\(:;)-]', ' ', request).split()
             good_words = []
             dictionary = misc.dictionaries[-1]
 
